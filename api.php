@@ -145,22 +145,37 @@ function ensureDefaultAdmin(PDO $pdo): void
 
 function signupStudent(PDO $pdo, array $input): void
 {
-    $name = trim((string)($input['name'] ?? ''));
-    $username = trim((string)($input['username'] ?? ''));
-    $password = (string)($input['password'] ?? '');
-    if ($name === '' || $username === '' || strlen($password) < 4) {
-        respondError('Name, username and password (min 4 chars) are required.');
+    $name = trim($input['name'] ?? '');
+    $username = trim($input['username'] ?? '');
+    $password = $input['password'] ?? '';
+
+    if ($name === '') {
+        respondError("Name is required.");
+    }
+
+    if ($username === '') {
+        respondError("Username is required.");
+    }
+
+    if (strlen($password) < 4) {
+        respondError("Password must be at least 4 characters.");
+    }
+
+    if (!preg_match('/[^a-zA-Z0-9]/', $password)) {
+        respondError("Password must contain at least one special character.");
     }
 
     $stmt = $pdo->prepare(
         "INSERT INTO users (name, username, password_hash_value, role)
          VALUES (:name, :username, :password_hash, 'student')"
     );
+
     $stmt->execute([
         ':name' => $name,
         ':username' => $username,
         ':password_hash' => password_hash($password, PASSWORD_DEFAULT)
     ]);
+
     respondSuccess('Student signup successful.');
 }
 

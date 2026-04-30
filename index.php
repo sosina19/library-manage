@@ -14,21 +14,35 @@ declare(strict_types=1);
         <h1>Library Management System</h1>
         <div id="message" aria-live="polite"></div>
 
-        <section id="auth-section" class="card">
-            <h2>Login</h2>
-            <form id="login-form" class="inline-form">
-                <input type="text" id="login-username" placeholder="Username" required>
-                <input type="password" id="login-password" placeholder="Password" required>
-                <button type="submit">Login</button>
-            </form>
-            <h3>Student Signup</h3>
-            <form id="signup-form" class="inline-form">
-                <input type="text" id="signup-name" placeholder="Full Name" required>
-                <input type="text" id="signup-username" placeholder="Username" required>
-                <input type="password" id="signup-password" placeholder="Password" required>
-                <button type="submit">Signup</button>
-            </form>
-            <p class="hint">Librarian accounts can only be created by admin.</p>
+        <section id="auth-section" class="card auth-card">
+            <h2>Welcome Back</h2>
+            <p class="hint auth-subtitle">Sign in or create your student account to continue.</p>
+            <div class="auth-toggle" role="tablist" aria-label="Choose authentication form">
+                <button type="button" id="show-login" class="auth-tab active" aria-controls="login-panel" aria-selected="true">Login</button>
+                <button type="button" id="show-signup" class="auth-tab" aria-controls="signup-panel" aria-selected="false">Signup</button>
+            </div>
+
+            <div id="login-panel" class="auth-panel">
+                <form id="login-form" class="auth-form">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" placeholder="Enter username" required>
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Enter password" required>
+                    <button type="submit">Login</button>
+                </form>
+            </div>
+
+            <div id="signup-panel" class="auth-panel hidden">
+                <form id="signup-form" class="auth-form">
+                    <label for="signup-name">Full Name</label>
+                    <input type="text" id="signup-name" placeholder="Enter full name" required>
+                    <label for="signup-username">Username</label>
+                    <input type="text" id="signup-username" placeholder="Choose username" required>
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" placeholder="Create password" required>
+                    <button type="submit">Create Account</button>
+                </form>
+            </div>
         </section>
 
         <section id="app-section" class="hidden">

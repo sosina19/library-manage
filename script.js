@@ -2,6 +2,10 @@ const messageBox = document.getElementById("message");
 const authSection = document.getElementById("auth-section");
 const appSection = document.getElementById("app-section");
 const currentUserText = document.getElementById("current-user");
+const loginPanel = document.getElementById("login-panel");
+const signupPanel = document.getElementById("signup-panel");
+const loginTab = document.getElementById("show-login");
+const signupTab = document.getElementById("show-signup");
 
 const booksBody = document.getElementById("books-body");
 const recordsBody = document.getElementById("records-body");
@@ -15,6 +19,18 @@ const usersSection = document.getElementById("users-section");
 
 let currentUser = null;
 let currentSearch = "";
+let activeAuthView = "login";
+
+function setAuthView(view) {
+    activeAuthView = view;
+    const isLogin = view === "login";
+    loginPanel.classList.toggle("hidden", !isLogin);
+    signupPanel.classList.toggle("hidden", isLogin);
+    loginTab.classList.toggle("active", isLogin);
+    signupTab.classList.toggle("active", !isLogin);
+    loginTab.setAttribute("aria-selected", isLogin ? "true" : "false");
+    signupTab.setAttribute("aria-selected", isLogin ? "false" : "true");
+}
 
 function showMessage(text, isError = false) {
     messageBox.textContent = text;
@@ -144,6 +160,7 @@ document.getElementById("signup-form").addEventListener("submit", async (event) 
         });
         showMessage("Signup successful. Please login.");
         event.target.reset();
+        setAuthView("login");
     } catch (error) {
         showMessage(error.message, true);
     }
@@ -286,6 +303,14 @@ document.getElementById("remove-user-form").addEventListener("submit", async (ev
     }
 });
 
+loginTab.addEventListener("click", () => {
+    setAuthView("login");
+});
+
+signupTab.addEventListener("click", () => {
+    setAuthView("signup");
+});
+
 async function bootstrap() {
     try {
         const data = await apiRequest("me");
@@ -293,6 +318,7 @@ async function bootstrap() {
     } catch (error) {
         currentUser = null;
     }
+    setAuthView(activeAuthView);
     applyRoleUI();
     if (currentUser) {
         await refreshAll();
