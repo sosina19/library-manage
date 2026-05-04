@@ -1,484 +1,259 @@
 <?php
-declare(strict_types=1);
+require_once __DIR__ . '/../auth.php';
 
-session_start();
 header('Content-Type: application/json');
 
-$dbFile = __DIR__ . '/library.db';
-$pdo = null;
+$action = $_REQUEST['action'] ?? '';
 
-try {
-    $pdo = new PDO('sqlite:' . $dbFile);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->exec('PRAGMA foreign_keys = ON');
-
-    $pdo->exec(
-        "CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            username TEXT NOT NULL UNIQUE,
-            password_hash_value TEXT NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('student', 'librarian', 'admin')),
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )"
-    );
-
-    $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS books (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            author TEXT NOT NULL,
-            isbn TEXT NOT NULL UNIQUE,
-            total_quantity INTEGER NOT NULL CHECK(total_quantity >= 0),
-            available_quantity INTEGER NOT NULL CHECK(available_quantity >= 0)
-        )'
-    );
-
-    $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS borrow_records (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            book_id INTEGER NOT NULL,
-            borrowed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            returned_at TEXT DEFAULT NULL,
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
-        )'
-    );
-
-    ensureDefaultAdmin($pdo);
-} catch (Throwable $e) {
-    respondError('Database initialization failed.');
+if ($action === 'login') {
+    $username = $_POST['username'] ?? '';
+    $password = $_POST['password'] ?? '';
+    if (login($username, $password)) {
+        echo json_encode(['success' => true, 'role' => $_SESSION['role']]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
+    }
+    exit();
 }
 
-if (!$pdo instanceof PDO) {
-    respondError('Database initialization failed.');
+if ($action === 'logout') {
+    logout();
+    echo json_encode(['success' => true]);
+    exit();
+}
+  
+if ($action === 'signup') {
+    $username = trim($_POST['username'] ?? '');
+    $password = trim($_POST['password'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+
+    if ($username === '' || $password === '' || $email === '') {
+        echo json_encode(['success' => false, 'message' => 'All fields are required']);
+        exit();
+    }
+
+    $db = getDB();
+
+    // check if username already exists
+    $stmt = $db->prepare("SELECT id FROM users WHERE username = :u");
+    $stmt->bindValue(':u', $username, SQLITE3_TEXT);
+    $result = $stmt->execute();
+
+    if ($result->fetchArray()) {
+        echo json_encode(['success' => false, 'message' => 'Username already exists']);
+        exit();
+    }
+
+    $hashed = password_hash($password, PASSWORD_DEFAULT);
+
+    // signup role always normal user
+    $stmt = $db->prepare("INSERT INTO users (username, password_hash, role, email) VALUES (:u, :p, 'user', :e)");
+    $stmt->bindValue(':u', $username, SQLITE3_TEXT);
+    $stmt->bindValue(':p', $hashed, SQLITE3_TEXT);
+    $stmt->bindValue(':e', $email, SQLITE3_TEXT);
+
+    if ($stmt->execute()) {
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Signup failed']);
+    }
+    exit();
 }
 
-$action = $_GET['action'] ?? '';
-$input = readJsonInput();
+// Ensure logged in for other actions
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit();
+}
+
+$db = getDB();
+$role = $_SESSION['role'];
+$user_id = $_SESSION['user_id'];
 
 try {
     switch ($action) {
-        case 'signup':
-            signupStudent($pdo, $input);
+        // --- ADMIN ENDPOINTS ---
+        case 'get_users':
+            requireRole('admin');
+            $result = $db->query("SELECT id, username, role, email, created_at FROM users");
+            $users = [];
+            while ($row = $result->fetchArray(SQLITE3_ASSOC)) { $users[] = $row; }
+            echo json_encode(['success' => true, 'data' => $users]);
             break;
-        case 'login':
-            loginUser($pdo, $input);
+
+        case 'add_user':
+            requireRole('admin');
+            $u = $_POST['username'];
+            $p = password_hash($_POST['password'], PASSWORD_DEFAULT);
+            $r = $_POST['role'];
+            $e = $_POST['email'];
+            $stmt = $db->prepare("INSERT INTO users (username, password_hash, role, email) VALUES (:u, :p, :r, :e)");
+            $stmt->bindValue(':u', $u, SQLITE3_TEXT);
+            $stmt->bindValue(':p', $p, SQLITE3_TEXT);
+            $stmt->bindValue(':r', $r, SQLITE3_TEXT);
+            $stmt->bindValue(':e', $e, SQLITE3_TEXT);
+            if($stmt->execute()) {
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to add user. Username might be taken.']);
+            }
             break;
-        case 'logout':
-            logoutUser();
+            
+        case 'update_user':
+            requireRole('admin');
+            $id = $_POST['id'];
+            $r = $_POST['role'];
+            $e = $_POST['email'];
+            $stmt = $db->prepare("UPDATE users SET role = :r, email = :e WHERE id = :id");
+            $stmt->bindValue(':r', $r, SQLITE3_TEXT);
+            $stmt->bindValue(':e', $e, SQLITE3_TEXT);
+            $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
+            $stmt->execute();
+            echo json_encode(['success' => true]);
             break;
-        case 'me':
-            currentUser();
-            break;
-        case 'list_books':
-            listBooks($pdo, (string)($_GET['q'] ?? ''));
-            break;
-        case 'borrow':
-            borrowBook($pdo, $input);
-            break;
-        case 'return':
-            returnBook($pdo, $input);
-            break;
-        case 'add_book':
-            requireRole(['librarian', 'admin']);
-            addBook($pdo, $input);
-            break;
-        case 'update_book':
-            requireRole(['librarian', 'admin']);
-            updateBook($pdo, $input);
-            break;
-        case 'delete_book':
-            requireRole(['librarian', 'admin']);
-            deleteBook($pdo, $input);
-            break;
-        case 'list_records':
-            requireRole(['librarian', 'admin']);
-            listRecords($pdo);
-            break;
-        case 'create_user':
-            requireRole(['admin']);
-            createUserByAdmin($pdo, $input);
-            break;
+
         case 'delete_user':
-            requireRole(['admin']);
-            deleteUserByAdmin($pdo, $input);
+            requireRole('admin');
+            $id = $_POST['id'];
+            if ($id == $user_id) {
+                echo json_encode(['success' => false, 'message' => 'Cannot delete yourself']);
+                exit();
+            }
+            $stmt = $db->prepare("DELETE FROM users WHERE id = :id");
+            $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
+            $stmt->execute();
+            echo json_encode(['success' => true]);
             break;
-        case 'list_users':
-            requireRole(['admin']);
-            listUsers($pdo);
+
+        // --- LIBRARIAN / ADMIN / USER ENDPOINTS (Books management) ---
+        case 'get_books':
+            $result = $db->query("SELECT * FROM books");
+            $books = [];
+            while ($row = $result->fetchArray(SQLITE3_ASSOC)) { $books[] = $row; }
+            echo json_encode(['success' => true, 'data' => $books]);
             break;
+
+        case 'add_book':
+            if ($role !== 'admin' && $role !== 'librarian') { requireRole('librarian'); }
+            $t = $_POST['title'];
+            $a = $_POST['author'];
+            $i = $_POST['isbn'];
+            $y = $_POST['published_year'];
+            $stmt = $db->prepare("INSERT INTO books (title, author, isbn, published_year) VALUES (:t, :a, :i, :y)");
+            $stmt->bindValue(':t', $t, SQLITE3_TEXT);
+            $stmt->bindValue(':a', $a, SQLITE3_TEXT);
+            $stmt->bindValue(':i', $i, SQLITE3_TEXT);
+            $stmt->bindValue(':y', $y, SQLITE3_INTEGER);
+            $stmt->execute();
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'update_book':
+            if ($role !== 'admin' && $role !== 'librarian') { requireRole('librarian'); }
+            $id = $_POST['id'];
+            $t = $_POST['title'];
+            $a = $_POST['author'];
+            $i = $_POST['isbn'];
+            $y = $_POST['published_year'];
+            $stmt = $db->prepare("UPDATE books SET title=:t, author=:a, isbn=:i, published_year=:y WHERE id=:id");
+            $stmt->bindValue(':t', $t, SQLITE3_TEXT);
+            $stmt->bindValue(':a', $a, SQLITE3_TEXT);
+            $stmt->bindValue(':i', $i, SQLITE3_TEXT);
+            $stmt->bindValue(':y', $y, SQLITE3_INTEGER);
+            $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
+            $stmt->execute();
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'delete_book':
+            if ($role !== 'admin' && $role !== 'librarian') { requireRole('librarian'); }
+            $id = $_POST['id'];
+            $stmt = $db->prepare("DELETE FROM books WHERE id=:id");
+            $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
+            $stmt->execute();
+            echo json_encode(['success' => true]);
+            break;
+
+        // --- TRANSACTIONS ---
+        case 'get_transactions':
+            if ($role !== 'admin' && $role !== 'librarian') { requireRole('librarian'); }
+            $result = $db->query("
+                SELECT t.id, t.borrow_date, t.return_date, t.status, b.title as book_title, u.username 
+                FROM transactions t 
+                JOIN books b ON t.book_id = b.id 
+                JOIN users u ON t.user_id = u.id
+                ORDER BY t.borrow_date DESC
+            ");
+            $transactions = [];
+            while ($row = $result->fetchArray(SQLITE3_ASSOC)) { $transactions[] = $row; }
+            echo json_encode(['success' => true, 'data' => $transactions]);
+            break;
+
+        // --- USER ENDPOINTS ---
+        case 'borrow_book':
+            requireRole('user');
+            $book_id = $_POST['book_id'];
+            
+            // Check availability
+            $stmt = $db->prepare("SELECT status FROM books WHERE id = :id");
+            $stmt->bindValue(':id', $book_id, SQLITE3_INTEGER);
+            $b = $stmt->execute()->fetchArray(SQLITE3_ASSOC);
+            
+            if ($b && $b['status'] === 'Available') {
+                $db->exec('BEGIN');
+                $stmt1 = $db->prepare("UPDATE books SET status = 'Borrowed' WHERE id = :id");
+                $stmt1->bindValue(':id', $book_id, SQLITE3_INTEGER);
+                $stmt1->execute();
+                
+                $stmt2 = $db->prepare("INSERT INTO transactions (book_id, user_id) VALUES (:bid, :uid)");
+                $stmt2->bindValue(':bid', $book_id, SQLITE3_INTEGER);
+                $stmt2->bindValue(':uid', $user_id, SQLITE3_INTEGER);
+                $stmt2->execute();
+                $db->exec('COMMIT');
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Book not available']);
+            }
+            break;
+
+        case 'return_book':
+            requireRole('user');
+            $book_id = $_POST['book_id'];
+            
+            $db->exec('BEGIN');
+            $stmt1 = $db->prepare("UPDATE books SET status = 'Available' WHERE id = :id");
+            $stmt1->bindValue(':id', $book_id, SQLITE3_INTEGER);
+            $stmt1->execute();
+            
+            $stmt2 = $db->prepare("UPDATE transactions SET status = 'Returned', return_date = CURRENT_TIMESTAMP WHERE book_id = :bid AND user_id = :uid AND status = 'Borrowed'");
+            $stmt2->bindValue(':bid', $book_id, SQLITE3_INTEGER);
+            $stmt2->bindValue(':uid', $user_id, SQLITE3_INTEGER);
+            $stmt2->execute();
+            $db->exec('COMMIT');
+            
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'get_my_transactions':
+            requireRole('user');
+            $stmt = $db->prepare("
+                SELECT t.id, t.borrow_date, t.return_date, t.status, b.title as book_title, b.id as book_id
+                FROM transactions t 
+                JOIN books b ON t.book_id = b.id 
+                WHERE t.user_id = :uid
+                ORDER BY t.borrow_date DESC
+            ");
+            $stmt->bindValue(':uid', $user_id, SQLITE3_INTEGER);
+            $result = $stmt->execute();
+            $transactions = [];
+            while ($row = $result->fetchArray(SQLITE3_ASSOC)) { $transactions[] = $row; }
+            echo json_encode(['success' => true, 'data' => $transactions]);
+            break;
+
         default:
-            respondError('Invalid action.');
+            echo json_encode(['success' => false, 'message' => 'Invalid action']);
     }
-} catch (Throwable $e) {
-    respondError($e->getMessage());
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
-
-function readJsonInput(): array
-{
-    $rawBody = file_get_contents('php://input');
-    $decoded = json_decode($rawBody ?: '{}', true);
-    return is_array($decoded) ? $decoded : [];
-}
-
-function ensureDefaultAdmin(PDO $pdo): void
-{
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE username = :username LIMIT 1');
-    $stmt->execute([':username' => 'admin']);
-    if ($stmt->fetch(PDO::FETCH_ASSOC)) {
-        return;
-    }
-
-    $insert = $pdo->prepare(
-        'INSERT INTO users (name, username, password_hash_value, role)
-         VALUES (:name, :username, :password_hash, :role)'
-    );
-    $insert->execute([
-        ':name' => 'System Admin',
-        ':username' => 'admin',
-        ':password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
-        ':role' => 'admin'
-    ]);
-}
-
-function signupStudent(PDO $pdo, array $input): void
-{
-    $name = trim($input['name'] ?? '');
-    $username = trim($input['username'] ?? '');
-    $password = $input['password'] ?? '';
-
-    if ($name === '') {
-        respondError("Name is required.");
-    }
-
-    if ($username === '') {
-        respondError("Username is required.");
-    }
-
-    if (strlen($password) < 4) {
-        respondError("Password must be at least 4 characters.");
-    }
-
-    if (!preg_match('/[^a-zA-Z0-9]/', $password)) {
-        respondError("Password must contain at least one special character.");
-    }
-
-    $stmt = $pdo->prepare(
-        "INSERT INTO users (name, username, password_hash_value, role)
-         VALUES (:name, :username, :password_hash, 'student')"
-    );
-
-    $stmt->execute([
-        ':name' => $name,
-        ':username' => $username,
-        ':password_hash' => password_hash($password, PASSWORD_DEFAULT)
-    ]);
-
-    respondSuccess('Student signup successful.');
-}
-
-function loginUser(PDO $pdo, array $input): void
-{
-    $username = trim((string)($input['username'] ?? ''));
-    $password = (string)($input['password'] ?? '');
-    if ($username === '' || $password === '') {
-        respondError('Username and password are required.');
-    }
-
-    $stmt = $pdo->prepare(
-        'SELECT id, name, username, password_hash_value, role
-         FROM users WHERE username = :username LIMIT 1'
-    );
-    $stmt->execute([':username' => $username]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$user || !password_verify($password, (string)$user['password_hash_value'])) {
-        respondError('Invalid username or password.');
-    }
-
-    $_SESSION['user'] = [
-        'id' => (int)$user['id'],
-        'name' => (string)$user['name'],
-        'username' => (string)$user['username'],
-        'role' => (string)$user['role']
-    ];
-
-    respondSuccess('Login successful.', ['user' => $_SESSION['user']]);
-}
-
-function logoutUser(): void
-{
-    $_SESSION = [];
-    if (ini_get('session.use_cookies')) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
-    }
-    session_destroy();
-    respondSuccess('Logged out.');
-}
-
-function currentUser(): void
-{
-    if (!isset($_SESSION['user'])) {
-        respondError('Not authenticated.');
-    }
-    respondSuccess('Authenticated.', ['user' => $_SESSION['user']]);
-}
-
-function requireRole(array $roles): void
-{
-    if (!isset($_SESSION['user'])) {
-        respondError('You must login first.');
-    }
-    $role = (string)$_SESSION['user']['role'];
-    if (!in_array($role, $roles, true)) {
-        respondError('Permission denied.');
-    }
-}
-
-function listBooks(PDO $pdo, string $query): void
-{
-    if (!isset($_SESSION['user'])) {
-        respondError('You must login first.');
-    }
-    $query = trim($query);
-    if ($query === '') {
-        $stmt = $pdo->query('SELECT * FROM books ORDER BY id DESC');
-    } else {
-        $stmt = $pdo->prepare(
-            'SELECT * FROM books
-             WHERE title LIKE :q OR author LIKE :q OR isbn LIKE :q
-             ORDER BY id DESC'
-        );
-        $stmt->execute([':q' => '%' . $query . '%']);
-    }
-    $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    respondSuccess('Books loaded.', ['books' => $books]);
-}
-
-function borrowBook(PDO $pdo, array $input): void
-{
-    requireRole(['student']);
-    $bookId = (int)($input['book_id'] ?? 0);
-    if ($bookId < 1) {
-        respondError('Valid book ID is required.');
-    }
-
-    $stmt = $pdo->prepare('SELECT * FROM books WHERE id = :id');
-    $stmt->execute([':id' => $bookId]);
-    $book = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$book) {
-        respondError('Book not found.');
-    }
-    if ((int)$book['available_quantity'] < 1) {
-        respondError('All copies are already borrowed.');
-    }
-
-    $pdo->beginTransaction();
-    $decrement = $pdo->prepare('UPDATE books SET available_quantity = available_quantity - 1 WHERE id = :id');
-    $decrement->execute([':id' => $bookId]);
-
-    $record = $pdo->prepare(
-        'INSERT INTO borrow_records (user_id, book_id)
-         VALUES (:user_id, :book_id)'
-    );
-    $record->execute([
-        ':user_id' => (int)$_SESSION['user']['id'],
-        ':book_id' => $bookId
-    ]);
-    $pdo->commit();
-
-    respondSuccess('Book borrowed.');
-}
-
-function returnBook(PDO $pdo, array $input): void
-{
-    requireRole(['student']);
-    $bookId = (int)($input['book_id'] ?? 0);
-    if ($bookId < 1) {
-        respondError('Valid book ID is required.');
-    }
-
-    $recordStmt = $pdo->prepare(
-        'SELECT id FROM borrow_records
-         WHERE user_id = :user_id AND book_id = :book_id AND returned_at IS NULL
-         ORDER BY id DESC LIMIT 1'
-    );
-    $recordStmt->execute([
-        ':user_id' => (int)$_SESSION['user']['id'],
-        ':book_id' => $bookId
-    ]);
-    $record = $recordStmt->fetch(PDO::FETCH_ASSOC);
-    if (!$record) {
-        respondError('No active borrowed record found for this book.');
-    }
-
-    $pdo->beginTransaction();
-    $markReturned = $pdo->prepare('UPDATE borrow_records SET returned_at = CURRENT_TIMESTAMP WHERE id = :id');
-    $markReturned->execute([':id' => (int)$record['id']]);
-
-    $increment = $pdo->prepare('UPDATE books SET available_quantity = available_quantity + 1 WHERE id = :book_id');
-    $increment->execute([':book_id' => $bookId]);
-    $pdo->commit();
-
-    respondSuccess('Book returned.');
-}
-
-function addBook(PDO $pdo, array $input): void
-{
-    $title = trim((string)($input['title'] ?? ''));
-    $author = trim((string)($input['author'] ?? ''));
-    $isbn = trim((string)($input['isbn'] ?? ''));
-    $quantity = (int)($input['quantity'] ?? 0);
-    if ($title === '' || $author === '' || $isbn === '' || $quantity < 1) {
-        respondError('Title, author, ISBN and quantity (>= 1) are required.');
-    }
-
-    $stmt = $pdo->prepare(
-        'INSERT INTO books (title, author, isbn, total_quantity, available_quantity)
-         VALUES (:title, :author, :isbn, :total, :available)'
-    );
-    $stmt->execute([
-        ':title' => $title,
-        ':author' => $author,
-        ':isbn' => $isbn,
-        ':total' => $quantity,
-        ':available' => $quantity
-    ]);
-    respondSuccess('Book added.');
-}
-
-function updateBook(PDO $pdo, array $input): void
-{
-    $id = (int)($input['id'] ?? 0);
-    $title = trim((string)($input['title'] ?? ''));
-    $author = trim((string)($input['author'] ?? ''));
-    $isbn = trim((string)($input['isbn'] ?? ''));
-    $quantity = (int)($input['quantity'] ?? 0);
-    if ($id < 1 || $title === '' || $author === '' || $isbn === '' || $quantity < 1) {
-        respondError('Book ID, title, author, ISBN and quantity are required.');
-    }
-
-    $stmt = $pdo->prepare('SELECT total_quantity, available_quantity FROM books WHERE id = :id');
-    $stmt->execute([':id' => $id]);
-    $book = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$book) {
-        respondError('Book not found.');
-    }
-
-    $borrowedCount = (int)$book['total_quantity'] - (int)$book['available_quantity'];
-    if ($quantity < $borrowedCount) {
-        respondError('Total quantity cannot be less than currently borrowed copies.');
-    }
-
-    $newAvailable = $quantity - $borrowedCount;
-    $update = $pdo->prepare(
-        'UPDATE books
-         SET title = :title, author = :author, isbn = :isbn, total_quantity = :total, available_quantity = :available
-         WHERE id = :id'
-    );
-    $update->execute([
-        ':title' => $title,
-        ':author' => $author,
-        ':isbn' => $isbn,
-        ':total' => $quantity,
-        ':available' => $newAvailable,
-        ':id' => $id
-    ]);
-    if ($update->rowCount() === 0) {
-        respondError('No changes saved.');
-    }
-    respondSuccess('Book updated.');
-}
-
-function deleteBook(PDO $pdo, array $input): void
-{
-    $id = (int)($input['id'] ?? 0);
-    if ($id < 1) {
-        respondError('Valid book ID is required.');
-    }
-    $stmt = $pdo->prepare('DELETE FROM books WHERE id = :id');
-    $stmt->execute([':id' => $id]);
-    if ($stmt->rowCount() === 0) {
-        respondError('Book not found.');
-    }
-    respondSuccess('Book deleted.');
-}
-
-function listRecords(PDO $pdo): void
-{
-    $stmt = $pdo->query(
-        'SELECT br.id, b.title AS book_title, u.username, br.borrowed_at, br.returned_at
-         FROM borrow_records br
-         INNER JOIN books b ON b.id = br.book_id
-         INNER JOIN users u ON u.id = br.user_id
-         ORDER BY br.id DESC'
-    );
-    $records = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    respondSuccess('Records loaded.', ['records' => $records]);
-}
-
-function createUserByAdmin(PDO $pdo, array $input): void
-{
-    $name = trim((string)($input['name'] ?? ''));
-    $username = trim((string)($input['username'] ?? ''));
-    $password = (string)($input['password'] ?? '');
-    $role = trim((string)($input['role'] ?? 'student'));
-    if ($name === '' || $username === '' || strlen($password) < 4) {
-        respondError('Name, username and password (min 4 chars) are required.');
-    }
-    if (!in_array($role, ['student', 'librarian', 'admin'], true)) {
-        respondError('Invalid role.');
-    }
-
-    $stmt = $pdo->prepare(
-        'INSERT INTO users (name, username, password_hash_value, role),
-         VALUES (:name, :username, :password_hash, :role)'
-    );
-    $stmt->execute([
-        ':name' => $name,
-        ':username' => $username,
-        ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
-        ':role' => $role
-    ]);
-    respondSuccess('User created.');
-}
-
-function deleteUserByAdmin(PDO $pdo, array $input): void
-{
-    $id = (int)($input['id'] ?? 0);
-    if ($id < 1) {
-        respondError('Valid user ID is required.');
-    }
-
-    if ((int)$_SESSION['user']['id'] === $id) {
-        respondError('Admin cannot remove own account.');
-    }
-
-    $stmt = $pdo->prepare('DELETE FROM users WHERE id = :id');
-    $stmt->execute([':id' => $id]);
-    if ($stmt->rowCount() === 0) {
-        respondError('User not found.');
-    }
-    respondSuccess('User removed.');
-}
-
-function listUsers(PDO $pdo): void
-{
-    $stmt = $pdo->query('SELECT id, name, username, role, created_at FROM users ORDER BY id DESC');
-    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    respondSuccess('Users loaded.', ['users' => $users]);
-}
-
-function respondSuccess(string $message, array $data = []): void
-{
-    echo json_encode(array_merge(['success' => true, 'message' => $message], $data));
-    exit;
-}
-
-function respondError(string $message): void
-{
-    echo json_encode(['success' => false, 'message' => $message]);
-    exit;
-}
+?>
