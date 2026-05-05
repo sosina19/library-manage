@@ -21,7 +21,29 @@ requireRole('admin');
                 <a data-tab="users-tab" onclick="switchTab('users-tab'); loadUsers();">Manage Users</a>
                 <a data-tab="books-tab" onclick="switchTab('books-tab'); loadBooks();">View Books</a>
             </nav>
-            <button class="logout-btn" onclick="logout()">Logout</button>
+     <div class="profile-wrapper">
+    <div class="profile-circle" onclick="toggleProfileCard()">
+        <?php echo strtoupper(substr($_SESSION['username'], 0, 1)); ?>
+    </div>
+
+    <div id="profileCard" class="profile-card hidden">
+        <div class="profile-header">
+            <div class="avatar-big">
+                <?php echo strtoupper(substr($_SESSION['username'], 0, 1)); ?>
+            </div>
+
+            <div>
+                <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
+                <small><?php echo htmlspecialchars($_SESSION['email'] ?? ''); ?></small>
+            </div>
+        </div>
+
+        <div class="profile-actions">
+            <button onclick="toggleTheme()" class="theme-btn">🌓 Theme</button>
+            <button onclick="logout()" class="logout-btn"> Logout</button>
+        </div>
+    </div>
+</div>
         </aside>
         
         <main class="main-content">
@@ -213,6 +235,49 @@ requireRole('admin');
     <script src="script.js"></script>
 
     <script>
+
+        function toggleProfileMenu() {
+    document.getElementById('profileDropdown').classList.toggle('hidden');
+        }
+
+        // close when clicking outside
+        document.addEventListener('click', function (e) {
+            const menu = document.querySelector('.profile-menu');
+            if (!menu.contains(e.target)) {
+                document.getElementById('profileDropdown').classList.add('hidden');
+            }
+        });
+
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle("dark-mode");
+
+            // save preference
+            if (body.classList.contains("dark-mode")) {
+                localStorage.setItem("theme", "dark");
+            } else {
+                localStorage.setItem("theme", "light");
+            }
+        }
+
+        // load saved theme on page start
+        window.addEventListener("load", () => {
+            const theme = localStorage.getItem("theme");
+            if (theme === "dark") {
+                document.body.classList.add("dark-mode");
+            }
+        });
+        function toggleProfileCard() {
+    document.getElementById('profileCard').classList.toggle('hidden');
+        }
+
+        // close when clicking outside
+        document.addEventListener('click', function (e) {
+            const wrapper = document.querySelector('.profile-wrapper');
+            if (!wrapper.contains(e.target)) {
+                document.getElementById('profileCard').classList.add('hidden');
+            }
+        });
         async function loadDashboard() {
             const res = await apiCall('dashboard_stats');
             if(res.success) {
