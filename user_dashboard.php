@@ -20,12 +20,34 @@ requireRole('user');
                 <a class="active" data-tab="browse-tab" onclick="switchTab('browse-tab'); loadAvailableBooks();">Browse Books</a>
                 <a data-tab="my-books-tab" onclick="switchTab('my-books-tab'); loadMyTransactions();">My Books</a>
             </nav>
-            <button class="logout-btn" onclick="logout()">Logout</button>
+            <div class="profile-wrapper">
+    <div class="profile-circle" onclick="toggleProfileCard()">
+        <?php echo strtoupper(substr($_SESSION['username'], 0, 1)); ?>
+    </div>
+
+    <div id="profileCard" class="profile-card hidden">
+        <div class="profile-header">
+            <div class="avatar-big">
+                <?php echo strtoupper(substr($_SESSION['username'], 0, 1)); ?>
+            </div>
+
+            <div>
+                <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
+                <small><?php echo htmlspecialchars($_SESSION['email'] ?? ''); ?></small>
+            </div>
+        </div>
+
+        <div class="profile-actions">
+            <button onclick="toggleTheme()" class="theme-btn">🌓 Theme</button>
+            <button onclick="openLogoutModal()" class="logout-btn"> Logout</button>
+        </div>
+    </div>
+</div>
         </aside>
         
         <main class="main-content">
             <div class="header">
-                <h1>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
+                <h1>👋Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
             </div>
 
             <!-- Browse Books Tab -->
@@ -60,9 +82,78 @@ requireRole('user');
             </div>
         </main>
     </div>
+    <div id="logoutModal" class="modal">
+    <div class="modal-content" style="max-width:400px; text-align:center;">
+
+        <h3 style="margin-bottom:10px;color:black;"> 🔓Confirm Logout</h3>
+        <p style="margin-bottom:20px;color:black;">Are you sure you want to log out?</p>
+
+        <div style="display:flex; justify-content:center; gap:10px;">
+            <button class="btn btn-danger" onclick="confirmLogout()">Logout</button>
+            <button class="btn btn-secondary" onclick="closeModal('logoutModal')">Cancel</button>
+        </div>
+
+    </div>
+</div>
 
     <script src="script.js"></script>
     <script>
+
+       function toggleProfileMenu() {
+    document.getElementById('profileDropdown').classList.toggle('hidden');
+        }
+
+        // close when clicking outside
+        document.addEventListener('click', function (e) {
+            const menu = document.querySelector('.profile-menu');
+            if (!menu.contains(e.target)) {
+                document.getElementById('profileDropdown').classList.add('hidden');
+            }
+        });
+
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle("dark-mode");
+
+            // save preference
+            if (body.classList.contains("dark-mode")) {
+                localStorage.setItem("theme", "dark");
+            } else {
+                localStorage.setItem("theme", "light");
+            }
+        }
+
+        // load saved theme on page start
+        window.addEventListener("load", () => {
+            const theme = localStorage.getItem("theme");
+            if (theme === "dark") {
+                document.body.classList.add("dark-mode");
+            }
+        });
+        function toggleProfileCard() {
+    document.getElementById('profileCard').classList.toggle('hidden');
+        }
+       function openLogoutModal() {
+    openModal('logoutModal');
+  }
+
+        async function confirmLogout() {
+            const res = await apiCall('logout');
+
+            if (res.success) {
+                window.location.href = 'index.php'; // or login page
+            } else {
+                alert("Logout failed");
+            }
+        }
+        // close when clicking outside
+        document.addEventListener('click', function (e) {
+            const wrapper = document.querySelector('.profile-wrapper');
+            if (!wrapper.contains(e.target)) {
+                document.getElementById('profileCard').classList.add('hidden');
+            }
+        });
+
         let allBooks = [];
 
         async function loadAvailableBooks() {
@@ -115,18 +206,44 @@ requireRole('user');
                 const tbody = document.querySelector('#myBooksTable tbody');
                 tbody.innerHTML = '';
                 res.data.forEach(t => {
-                    let actionHtml = t.status === 'Borrowed' 
-                        ? `<button class="btn btn-secondary btn-sm" onclick="returnBook(${t.book_id})">Return</button>`
-                        : `<span class="badge returned">Returned on ${t.return_date}</span>`;
-                    
-                    tbody.innerHTML += `<tr>
+                    // 1. Detect overdue
+                let badgeClass = 'borrowed';
+
+                if (t.status === 'Returned') {
+                    badgeClass = 'returned';
+                } 
+                else if (t.due_date && new Date(t.due_date) < new Date()) {
+                    badgeClass = 'overdue';
+                }
+              else if (t.due_date) {
+                const daysLeft = Math.ceil(
+                    (new Date(t.due_date) - new Date()) / (1000 * 60 * 60 * 24)
+                );
+
+                if (daysLeft <= 2) {
+                    badgeClass = 'warning';
+                }
+            }
+                // 2. Action button
+                let actionHtml = t.status === 'Borrowed' 
+                    ? `<button class="btn btn-secondary btn-sm" onclick="returnBook(${t.book_id})">Return</button>`
+                    : `<span class="badge returned">Returned on ${t.return_date}</span>`;
+
+                // 3. Table row
+                tbody.innerHTML += `
+                    <tr>
                         <td>${t.book_title}</td>
                         <td>${t.borrow_date}</td>
-                        <td><span class="badge ${t.status === 'Returned' ? 'returned' : 'borrowed'}">${t.status}</span></td>
+                        <td>
+                            <span class="badge ${badgeClass}">
+                                ${t.status}
+                            </span>
+                        </td>
                         <td>${actionHtml}</td>
-                    </tr>`;
-                });
-            }
+                    </tr>
+                `;
+            });
+         }
         }
 
         async function returnBook(book_id) {

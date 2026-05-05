@@ -327,9 +327,16 @@ try {
                 $stmt1->bindValue(':id', $book_id, SQLITE3_INTEGER);
                 $stmt1->execute();
                 
-                $stmt2 = $db->prepare("INSERT INTO transactions (book_id, user_id) VALUES (:bid, :uid)");
-                $stmt2->bindValue(':bid', $book_id, SQLITE3_INTEGER);
-                $stmt2->bindValue(':uid', $user_id, SQLITE3_INTEGER);
+                $due_date = date('Y-m-d H:i:s', strtotime('+7 days'));
+
+            $stmt2 = $db->prepare("
+                INSERT INTO transactions (book_id, user_id, borrow_date, due_date, status)
+                VALUES (:bid, :uid, CURRENT_TIMESTAMP, :due, 'Borrowed')
+            ");
+
+            $stmt2->bindValue(':bid', $book_id, SQLITE3_INTEGER);
+            $stmt2->bindValue(':uid', $user_id, SQLITE3_INTEGER);
+            $stmt2->bindValue(':due', $due_date, SQLITE3_TEXT);
                 $stmt2->execute();
                 $db->exec('COMMIT');
                 echo json_encode(['success' => true]);
@@ -371,6 +378,23 @@ try {
             while ($row = $result->fetchArray(SQLITE3_ASSOC)) { $transactions[] = $row; }
             echo json_encode(['success' => true, 'data' => $transactions]);
             break;
+        case 'get_overdue':
+            $result = $db->query("
+                SELECT t.*, u.username, b.title
+                FROM transactions t
+                JOIN users u ON t.user_id = u.id
+                JOIN books b ON t.book_id = b.id
+                WHERE t.status = 'Borrowed'
+                AND date(t.due_date) < date('now')
+            ");
+
+            $data = [];
+            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+                $data[] = $row;
+            }
+
+            echo json_encode(['success' => true, 'data' => $data]);
+            break;   
 
         default:
             echo json_encode(['success' => false, 'message' => 'Invalid action']);

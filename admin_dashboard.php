@@ -40,7 +40,7 @@ requireRole('admin');
 
         <div class="profile-actions">
             <button onclick="toggleTheme()" class="theme-btn">🌓 Theme</button>
-            <button onclick="logout()" class="logout-btn"> Logout</button>
+            <button onclick="openLogoutModal()" class="logout-btn"> Logout</button>
         </div>
     </div>
 </div>
@@ -48,7 +48,7 @@ requireRole('admin');
         
         <main class="main-content">
             <div class="header">
-                <h1>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
+                <h1>👋Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
             </div>
 
             <!-- DASHBOARD TAB -->
@@ -96,7 +96,7 @@ requireRole('admin');
                 </div>
 
                 <!-- Recent Activities -->
-                <div class="card" style="margin-top:20px;">
+                <div class="card" id="recentActivities" style="margin-top:20px;">
                     <div class="card-header">
                         <h3>Recent Activities (Borrows / Returns)</h3>
                     </div>
@@ -122,14 +122,13 @@ requireRole('admin');
     <div class="card">
 
         <!-- Header -->
-        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="card-header" id="rece" style="display:flex; justify-content:space-between; align-items:center;">
             <h3>Users Management</h3>
-            <button class="btn btn-primary btn-sm" onclick="openModal('userModal')">
-                + Add User
-            </button>
+           
         </div>
 
         <!-- Controls Bar -->
+         <div class="controls-bar">
         <div style="display:flex; gap:10px; margin:15px 0; flex-wrap:wrap;">
 
             <!-- Search -->
@@ -137,19 +136,22 @@ requireRole('admin');
                 type="text" 
                 id="userSearch" 
                 class="form-control" 
-                placeholder="Search by username or email..."
+                placeholder="🔍 Search..."
                 onkeyup="loadUsers()"
                 style="flex:1; min-width:200px;"
             >
-
+        
             <!-- Filter -->
             <select id="userFilter" class="form-control" style="max-width:200px;" onchange="loadUsers()">
-                <option value="all">All Roles</option>
-                <option value="admin">Admins</option>
-                <option value="librarian">Librarians</option>
-                <option value="user">Users</option>
+                <option value="all">🌐 All Roles</option>
+                <option value="admin">🛡️ Admins</option>
+                <option value="librarian">📚 Librarians</option>
+                <option value="user">👤 Users</option>
             </select>
-
+              <button class="btn btn-primary btn-sm" onclick="openModal('userModal')">
+                + Add User
+            </button>
+</div>
         </div>
 
         <!-- Table -->
@@ -157,7 +159,7 @@ requireRole('admin');
             <table id="usersTable">
                 <thead>
                     <tr>
-                        <th>#</th>
+                        <th>#Id</th>
                         <th>Username</th>
                         <th>Role</th>
                         <th>Email</th>
@@ -172,23 +174,24 @@ requireRole('admin');
 </div>
 
             <!-- Books Tab -->
-            <div id="books-tab" class="tab-content hidden">
+            <div id="books-tab" class="tab-content hidden" >
                 <div class="card">
                     <div class="card-header">
                         <h3>All Books Catalog</h3>
                     </div>
 
                     <!-- Search + Filter -->
+                     <div class="controls-bar">
                     <div style="display:flex; gap:10px; margin:15px 0;">
-                        <input type="text" id="bookSearch" class="form-control" placeholder="Search books by title, author, ISBN...">
-                        <select id="bookFilter" class="form-control" style="max-width:200px;">
+                        <input type="text" id="bookSearch" class="form-control" placeholder="🔍 Search..." oninput="loadBooks()">
+                        <select id="bookFilter" class="form-control" style="max-width:200px;" onchange="loadBooks()">
                             <option value="all">All</option>
                             <option value="available">Available</option>
                             <option value="borrowed">Borrowed</option>
                         </select>
-                        <button class="btn btn-primary" onclick="loadBooks()">Search</button>
+                        
                     </div>
-
+                     </div>
                     <div class="table-responsive">
                         <table id="booksTable">
                             <thead><tr><th>ID</th><th>Title</th><th>Author</th><th>ISBN</th><th>Status</th></tr></thead>
@@ -231,6 +234,34 @@ requireRole('admin');
             </form>
         </div>
     </div>
+    <div id="deleteModal" class="modal">
+    <div class="modal-content" style="max-width:400px; text-align:center;">
+        
+        <h3 style="margin-bottom:10px;color:black;">⚠️ Confirm Delete</h3>
+        <p style="margin-bottom:20px; color:black;">Are you sure you want to delete this user?</p>
+
+        <input type="hidden" id="deleteUserId">
+
+        <div style="display:flex; justify-content:center; gap:10px;">
+            <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+            <button class="btn btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
+        </div>
+
+    </div>
+</div>
+<div id="logoutModal" class="modal">
+    <div class="modal-content" style="max-width:400px; text-align:center;">
+
+        <h3 style="margin-bottom:10px;color:black;"> 🔓Confirm Logout</h3>
+        <p style="margin-bottom:20px;color:black;">Are you sure you want to log out?</p>
+
+        <div style="display:flex; justify-content:center; gap:10px;">
+            <button class="btn btn-danger" onclick="confirmLogout()">Logout</button>
+            <button class="btn btn-secondary" onclick="closeModal('logoutModal')">Cancel</button>
+        </div>
+
+    </div>
+</div>
 
     <script src="script.js"></script>
 
@@ -270,7 +301,19 @@ requireRole('admin');
         function toggleProfileCard() {
     document.getElementById('profileCard').classList.toggle('hidden');
         }
+       function openLogoutModal() {
+    openModal('logoutModal');
+  }
 
+        async function confirmLogout() {
+            const res = await apiCall('logout');
+
+            if (res.success) {
+                window.location.href = 'index.php'; // or login page
+            } else {
+                alert("Logout failed");
+            }
+        }
         // close when clicking outside
         document.addEventListener('click', function (e) {
             const wrapper = document.querySelector('.profile-wrapper');
@@ -309,13 +352,13 @@ requireRole('admin');
             }
         }
 
-      async function loadUsers() {
+   async function loadUsers() {
     const filter = document.getElementById('userFilter').value;
     const search = document.getElementById('userSearch').value;
 
-    const res = await apiCall('get_users', {filter:filter, search:search});
+    const res = await apiCall('get_users', {filter, search});
 
-    if(res.success) {
+    if (res.success) {
         const tbody = document.querySelector('#usersTable tbody');
         tbody.innerHTML = '';
 
@@ -329,75 +372,109 @@ requireRole('admin');
                     <td><span class="badge">${u.role}</span></td>
                     <td>${u.email || '-'}</td>
                     <td style="text-align:right;">
-                        <button onclick="editUser(${u.id}, '${u.username}', '${u.role}', '${u.email || ''}')">✏️</button>
-                        <button onclick="deleteUser(${u.id})">❌</button>
+                        <button class="action-btn edit"
+                            onclick="editUser(${u.id}, '${u.username}', '${u.role}', '${u.email || ''}')">
+                            ✏️
+                        </button>
+
+                        <button class="action-btn delete"
+                            onclick="openDeleteModal(${u.id})">
+                            🗑️
+                        </button>
                     </td>
                 </tr>
             `;
         });
-    }
-}
+            }
+        } 
+        function openDeleteModal(id) {
+            document.getElementById('deleteUserId').value = id;
+            openModal('deleteModal');
+        }
 
-        async function loadBooks() {
-            const search = document.getElementById('bookSearch').value;
-            const filter = document.getElementById('bookFilter').value;
+        async function confirmDelete() {
+            const id = document.getElementById('deleteUserId').value;
 
-            const res = await apiCall('get_books', {search, filter});
+            const res = await apiCall('delete_user', {id});
 
-            if(res.success) {
-                const tbody = document.querySelector('#booksTable tbody');
-                tbody.innerHTML = '';
-                res.data.forEach(b => {
-                    tbody.innerHTML += `<tr>
+            if (res.success) {
+                closeModal('deleteModal');
+                loadUsers();
+                loadDashboard();
+            } else {
+                alert(res.message);
+            }
+        }
+
+       let bookSearchTimeout;
+
+async function loadBooks() {
+    clearTimeout(bookSearchTimeout);
+
+    bookSearchTimeout = setTimeout(async () => {
+        const search = document.getElementById('bookSearch').value;
+        const filter = document.getElementById('bookFilter').value;
+
+        const res = await apiCall('get_books', {search, filter});
+
+        if (res.success) {
+            const tbody = document.querySelector('#booksTable tbody');
+            tbody.innerHTML = '';
+
+            res.data.forEach(b => {
+                tbody.innerHTML += `
+                    <tr>
                         <td>${b.id}</td>
                         <td>${b.title}</td>
                         <td>${b.author}</td>
                         <td>${b.isbn}</td>
-                        <td><span class="badge ${b.status === 'Available' ? 'available' : 'borrowed'}">${b.status}</span></td>
-                    </tr>`;
-                });
-            }
+                        <td>
+                            <span class="badge ${b.status === 'Available' ? 'available' : 'borrowed'}">
+                                ${b.status}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
         }
+    }, 300); // delay for smooth typing
+}
 
         document.getElementById('userForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('userId').value;
-            const data = {
-                username: document.getElementById('u_username').value,
-                role: document.getElementById('u_role').value,
-                email: document.getElementById('u_email').value
-            };
+        e.preventDefault();
 
-            let res;
-            if(!id) {
-                data.password = document.getElementById('u_password').value;
-                res = await apiCall('add_user', data);
-            } else {
-                res = await apiCall('update_user', {id: id, role: data.role, email: data.email});
-            }
+        const id = document.getElementById('userId').value;
 
-           if(res.success) {
-                closeModal('userModal');
-                loadUsers();
-                loadDashboard(); // 🔥 refresh stats after add/update/delete
-                document.getElementById('userForm').reset();
+        const data = {
+            username: document.getElementById('u_username').value,
+            role: document.getElementById('u_role').value,
+            email: document.getElementById('u_email').value
+        };
 
-                // 🔥 make password field visible again after edit mode
-                document.getElementById('passGroup').style.display = "block";
-            } else {
-                alert(res.message);
-            }
-        });
-        async function deleteUser(id) {
-                if(confirm('Are you sure you want to delete this user?')) {
-                    const res = await apiCall('delete_user', {id});
-                    if(res.success) {
-                        loadUsers();
-                        loadDashboard(); // refresh totals
-                    }
-                    else alert(res.message);
-                }
-            }
+        let res;
+
+        if (!id) {
+            data.password = document.getElementById('u_password').value;
+            res = await apiCall('add_user', data);
+        } else {
+            res = await apiCall('update_user', {
+                id,
+                role: data.role,
+                email: data.email
+            });
+        }
+
+        if (res.success) {
+            closeModal('userModal');
+            loadUsers();
+            loadDashboard();
+
+            document.getElementById('userForm').reset();
+            document.getElementById('passGroup').style.display = "block";
+        } else {
+            alert(res.message);
+        }
+    });
         function editUser(id, username, role, email) {
             document.getElementById('userId').value = id;
             document.getElementById('u_username').value = username;

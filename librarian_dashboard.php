@@ -25,7 +25,7 @@ requireRole('librarian');
         
         <main class="main-content">
             <div class="header">
-                <h1>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
+                <h1>👋Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
             </div>
 
             <!-- Books Tab -->
