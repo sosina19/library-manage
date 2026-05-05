@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../auth.php';
+require 'auth.php';
 
 header('Content-Type: application/json');
 
@@ -72,12 +72,103 @@ $user_id = $_SESSION['user_id'];
 
 try {
     switch ($action) {
-        // --- ADMIN ENDPOINTS ---
-        case 'get_users':
+
+        // ============================
+        // DASHBOARD STATS (ADMIN ONLY)
+        // ============================
+        case 'dashboard_stats':
             requireRole('admin');
-            $result = $db->query("SELECT id, username, role, email, created_at FROM users");
+
+            // total books
+            $totalBooks = $db->querySingle("SELECT COUNT(*) FROM books");
+
+            // available books
+            $availableBooks = $db->querySingle("SELECT COUNT(*) FROM books WHERE status = 'Available'");
+
+            // borrowed books
+            $borrowedBooks = $db->querySingle("SELECT COUNT(*) FROM books WHERE status = 'Borrowed'");
+
+            // total users
+            $totalUsers = $db->querySingle("SELECT COUNT(*) FROM users");
+
+            // grouped users by role
+            $admins = $db->querySingle("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+            $librarians = $db->querySingle("SELECT COUNT(*) FROM users WHERE role = 'librarian'");
+            $users = $db->querySingle("SELECT COUNT(*) FROM users WHERE role = 'user'");
+
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'total_books' => $totalBooks,
+                    'available_books' => $availableBooks,
+                    'borrowed_books' => $borrowedBooks,
+                    'total_users' => $totalUsers,
+                    'admins' => $admins,
+                    'librarians' => $librarians,
+                    'users' => $users
+                ]
+            ]);
+            break;
+
+
+        // ===================================
+        // RECENT ACTIVITIES (ADMIN ONLY)
+        // ===================================
+        case 'recent_activities':
+            requireRole('admin');
+
+            $result = $db->query("
+                SELECT 
+                    t.id,
+                    u.username,
+                    b.title AS book_title,
+                    CASE 
+                        WHEN t.status = 'Returned' THEN 'return'
+                        ELSE 'borrow'
+                    END AS action,
+                    COALESCE(t.return_date, t.borrow_date) AS date
+                FROM transactions t
+                JOIN users u ON t.user_id = u.id
+                JOIN books b ON t.book_id = b.id
+                ORDER BY date DESC
+                LIMIT 10
+            ");
+
+            $activities = [];
+            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+                $activities[] = $row;
+            }
+
+            echo json_encode(['success' => true, 'data' => $activities]);
+            break;
+
+
+        // --- ADMIN ENDPOINTS ---
+       case 'get_users':
+    requireRole('admin');
+            $filter = $_POST['filter'] ?? 'all';
+            $search = trim($_POST['search'] ?? '');
+            $query = "SELECT id, username, role, email, created_at FROM users WHERE 1=1";
+            // Role filter
+            if ($filter !== 'all') {
+                $query .= " AND role = :role";
+            }
+            // Search filter (username OR email)
+            if ($search !== '') {
+                $query .= " AND (username LIKE :search OR email LIKE :search)";
+            }
+           $stmt = $db->prepare($query);
+            if ($filter !== 'all') {
+                $stmt->bindValue(':role', $filter, SQLITE3_TEXT);
+            }
+            if ($search !== '') {
+                $stmt->bindValue(':search', "%$search%", SQLITE3_TEXT);
+            }
+            $result = $stmt->execute();
             $users = [];
-            while ($row = $result->fetchArray(SQLITE3_ASSOC)) { $users[] = $row; }
+            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+                $users[] = $row;
+            }
             echo json_encode(['success' => true, 'data' => $users]);
             break;
 
@@ -125,13 +216,42 @@ try {
             echo json_encode(['success' => true]);
             break;
 
+
         // --- LIBRARIAN / ADMIN / USER ENDPOINTS (Books management) ---
         case 'get_books':
-            $result = $db->query("SELECT * FROM books");
+            $search = trim($_POST['search'] ?? '');
+            $filter = trim($_POST['filter'] ?? 'all');
+
+            $query = "SELECT * FROM books WHERE 1=1";
+
+            if ($search !== '') {
+                $query .= " AND (title LIKE :s OR author LIKE :s OR isbn LIKE :s)";
+            }
+
+            if ($filter === 'available') {
+                $query .= " AND status = 'Available'";
+            } elseif ($filter === 'borrowed') {
+                $query .= " AND status = 'Borrowed'";
+            }
+
+            $query .= " ORDER BY id DESC";
+
+            $stmt = $db->prepare($query);
+
+            if ($search !== '') {
+                $stmt->bindValue(':s', '%' . $search . '%', SQLITE3_TEXT);
+            }
+
+            $result = $stmt->execute();
+
             $books = [];
-            while ($row = $result->fetchArray(SQLITE3_ASSOC)) { $books[] = $row; }
+            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+                $books[] = $row;
+            }
+
             echo json_encode(['success' => true, 'data' => $books]);
             break;
+
 
         case 'add_book':
             if ($role !== 'admin' && $role !== 'librarian') { requireRole('librarian'); }
@@ -174,6 +294,7 @@ try {
             echo json_encode(['success' => true]);
             break;
 
+
         // --- TRANSACTIONS ---
         case 'get_transactions':
             if ($role !== 'admin' && $role !== 'librarian') { requireRole('librarian'); }
@@ -188,6 +309,7 @@ try {
             while ($row = $result->fetchArray(SQLITE3_ASSOC)) { $transactions[] = $row; }
             echo json_encode(['success' => true, 'data' => $transactions]);
             break;
+
 
         // --- USER ENDPOINTS ---
         case 'borrow_book':

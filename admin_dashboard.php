@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../auth.php';
+require 'auth.php';
 checkLoggedIn();
 requireRole('admin');
 ?>
@@ -17,7 +17,8 @@ requireRole('admin');
         <aside class="sidebar">
             <h2>Admin Panel</h2>
             <nav>
-                <a class="active" data-tab="users-tab" onclick="switchTab('users-tab'); loadUsers();">Manage Users</a>
+                <a class="active" data-tab="dashboard-tab" onclick="switchTab('dashboard-tab'); loadDashboard();">Dashboard</a>
+                <a data-tab="users-tab" onclick="switchTab('users-tab'); loadUsers();">Manage Users</a>
                 <a data-tab="books-tab" onclick="switchTab('books-tab'); loadBooks();">View Books</a>
             </nav>
             <button class="logout-btn" onclick="logout()">Logout</button>
@@ -28,21 +29,125 @@ requireRole('admin');
                 <h1>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
             </div>
 
-            <!-- Users Tab -->
-            <div id="users-tab" class="tab-content">
+            <!-- DASHBOARD TAB -->
+            <div id="dashboard-tab" class="tab-content">
                 <div class="card">
                     <div class="card-header">
-                        <h3>Users & Librarians</h3>
-                        <button class="btn btn-primary btn-sm" onclick="openModal('userModal')">+ Add User</button>
+                        <h3>Library Overview</h3>
+                    </div>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h4>Total Books</h4>
+                    <p id="totalBooks">0</p>
+                </div>
+
+                <div class="stat-box">
+                    <h4>Available Books</h4>
+                    <p id="availableBooks">0</p>
+                </div>
+
+                <div class="stat-box">
+                    <h4>Borrowed Books</h4>
+                    <p id="borrowedBooks">0</p>
+                </div>
+
+                <div class="stat-box">
+                    <h4>Total Users</h4>
+                    <p id="totalUsers">0</p>
+                </div>
+
+                <div class="stat-box">
+                    <h4>Admins</h4>
+                    <p id="totalAdmins">0</p>
+                </div>
+
+                <div class="stat-box">
+                    <h4>Librarians</h4>
+                    <p id="totalLibrarians">0</p>
+                </div>
+
+                <div class="stat-box">
+                    <h4>Students</h4>
+                    <p id="totalNormalUsers">0</p>
+                </div>
+            </div>
+                </div>
+
+                <!-- Recent Activities -->
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header">
+                        <h3>Recent Activities (Borrows / Returns)</h3>
                     </div>
                     <div class="table-responsive">
-                        <table id="usersTable">
-                            <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Email</th><th>Actions</th></tr></thead>
+                        <table id="activitiesTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User</th>
+                                    <th>Book</th>
+                                    <th>Action</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
                             <tbody></tbody>
                         </table>
                     </div>
                 </div>
             </div>
+
+            <!-- Users Tab -->
+            <div id="users-tab" class="tab-content hidden">
+    <div class="card">
+
+        <!-- Header -->
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>Users Management</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('userModal')">
+                + Add User
+            </button>
+        </div>
+
+        <!-- Controls Bar -->
+        <div style="display:flex; gap:10px; margin:15px 0; flex-wrap:wrap;">
+
+            <!-- Search -->
+            <input 
+                type="text" 
+                id="userSearch" 
+                class="form-control" 
+                placeholder="Search by username or email..."
+                onkeyup="loadUsers()"
+                style="flex:1; min-width:200px;"
+            >
+
+            <!-- Filter -->
+            <select id="userFilter" class="form-control" style="max-width:200px;" onchange="loadUsers()">
+                <option value="all">All Roles</option>
+                <option value="admin">Admins</option>
+                <option value="librarian">Librarians</option>
+                <option value="user">Users</option>
+            </select>
+
+        </div>
+
+        <!-- Table -->
+        <div class="table-responsive">
+            <table id="usersTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Email</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
 
             <!-- Books Tab -->
             <div id="books-tab" class="tab-content hidden">
@@ -50,6 +155,18 @@ requireRole('admin');
                     <div class="card-header">
                         <h3>All Books Catalog</h3>
                     </div>
+
+                    <!-- Search + Filter -->
+                    <div style="display:flex; gap:10px; margin:15px 0;">
+                        <input type="text" id="bookSearch" class="form-control" placeholder="Search books by title, author, ISBN...">
+                        <select id="bookFilter" class="form-control" style="max-width:200px;">
+                            <option value="all">All</option>
+                            <option value="available">Available</option>
+                            <option value="borrowed">Borrowed</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="loadBooks()">Search</button>
+                    </div>
+
                     <div class="table-responsive">
                         <table id="booksTable">
                             <thead><tr><th>ID</th><th>Title</th><th>Author</th><th>ISBN</th><th>Status</th></tr></thead>
@@ -94,28 +211,74 @@ requireRole('admin');
     </div>
 
     <script src="script.js"></script>
+
     <script>
-        async function loadUsers() {
-            const res = await apiCall('get_users');
+        async function loadDashboard() {
+            const res = await apiCall('dashboard_stats');
             if(res.success) {
-                const tbody = document.querySelector('#usersTable tbody');
+                document.getElementById('totalBooks').innerText = res.data.total_books;
+                document.getElementById('availableBooks').innerText = res.data.available_books;
+                document.getElementById('borrowedBooks').innerText = res.data.borrowed_books;
+
+                document.getElementById('totalUsers').innerText = res.data.total_users;
+                document.getElementById('totalAdmins').innerText = res.data.admins;
+                document.getElementById('totalLibrarians').innerText = res.data.librarians;
+                document.getElementById('totalNormalUsers').innerText = res.data.users;
+            }
+
+            const act = await apiCall('recent_activities');
+            if(act.success) {
+                const tbody = document.querySelector('#activitiesTable tbody');
                 tbody.innerHTML = '';
-                res.data.forEach(u => {
-                    tbody.innerHTML += `<tr>
-                        <td>${u.id}</td>
-                        <td>${u.username}</td>
-                        <td><span class="badge ${u.role === 'admin' ? 'returned' : (u.role === 'librarian' ? 'available' : 'borrowed')}">${u.role}</span></td>
-                        <td>${u.email || '-'}</td>
-                        <td>
-                            <button class="action-btn" onclick="deleteUser(${u.id})">❌</button>
-                        </td>
-                    </tr>`;
+                act.data.forEach(a => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${a.id}</td>
+                            <td>${a.username}</td>
+                            <td>${a.book_title}</td>
+                            <td><span class="badge ${a.action === 'borrow' ? 'borrowed' : 'returned'}">${a.action}</span></td>
+                            <td>${a.date}</td>
+                        </tr>
+                    `;
                 });
             }
         }
-        
+
+      async function loadUsers() {
+    const filter = document.getElementById('userFilter').value;
+    const search = document.getElementById('userSearch').value;
+
+    const res = await apiCall('get_users', {filter:filter, search:search});
+
+    if(res.success) {
+        const tbody = document.querySelector('#usersTable tbody');
+        tbody.innerHTML = '';
+
+        let count = 1;
+
+        res.data.forEach(u => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${count++}</td>
+                    <td>${u.username}</td>
+                    <td><span class="badge">${u.role}</span></td>
+                    <td>${u.email || '-'}</td>
+                    <td style="text-align:right;">
+                        <button onclick="editUser(${u.id}, '${u.username}', '${u.role}', '${u.email || ''}')">✏️</button>
+                        <button onclick="deleteUser(${u.id})">❌</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+}
+
         async function loadBooks() {
-            const res = await apiCall('get_books');
+            const search = document.getElementById('bookSearch').value;
+            const filter = document.getElementById('bookFilter').value;
+
+            const res = await apiCall('get_books', {search, filter});
+
             if(res.success) {
                 const tbody = document.querySelector('#booksTable tbody');
                 tbody.innerHTML = '';
@@ -139,7 +302,7 @@ requireRole('admin');
                 role: document.getElementById('u_role').value,
                 email: document.getElementById('u_email').value
             };
-            
+
             let res;
             if(!id) {
                 data.password = document.getElementById('u_password').value;
@@ -147,26 +310,40 @@ requireRole('admin');
             } else {
                 res = await apiCall('update_user', {id: id, role: data.role, email: data.email});
             }
-            
-            if(res.success) {
+
+           if(res.success) {
                 closeModal('userModal');
                 loadUsers();
+                loadDashboard(); // 🔥 refresh stats after add/update/delete
                 document.getElementById('userForm').reset();
+
+                // 🔥 make password field visible again after edit mode
+                document.getElementById('passGroup').style.display = "block";
             } else {
                 alert(res.message);
             }
         });
-
         async function deleteUser(id) {
-            if(confirm('Are you sure you want to delete this user?')) {
-                const res = await apiCall('delete_user', {id});
-                if(res.success) loadUsers();
-                else alert(res.message);
+                if(confirm('Are you sure you want to delete this user?')) {
+                    const res = await apiCall('delete_user', {id});
+                    if(res.success) {
+                        loadUsers();
+                        loadDashboard(); // refresh totals
+                    }
+                    else alert(res.message);
+                }
             }
+        function editUser(id, username, role, email) {
+            document.getElementById('userId').value = id;
+            document.getElementById('u_username').value = username;
+            document.getElementById('u_role').value = role;
+            document.getElementById('u_email').value = email;
+            // Hide password when editing
+            document.getElementById('passGroup').style.display = "none";
+            openModal('userModal');
         }
-
-        // Initialize
-        loadUsers();
+        // Initialize Dashboard
+        loadDashboard();
     </script>
 </body>
 </html>
