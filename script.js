@@ -33,13 +33,80 @@ async function logout() {
 }
 
 function showNotification(msg, isError = false) {
-    alert(msg); // Fallback to alert for simplicity, could be enhanced to toast
+    showAlert(msg, isError ? 'Error' : 'Notice');
 }
+
+function ensureUiMessageModal() {
+    let modal = document.getElementById('uiMessageModal');
+    if (modal) return modal;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+        <div id="uiMessageModal" class="modal">
+            <div class="modal-content" style="max-width:420px; text-align:center;">
+                <h3 id="uiMessageTitle" style="margin-bottom:10px;color:black;">Notice</h3>
+                <p id="uiMessageBody" style="margin-bottom:20px; color:black;"></p>
+                <div id="uiMessageActions" style="display:flex; justify-content:center; gap:10px;"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrapper.firstElementChild);
+    return document.getElementById('uiMessageModal');
+}
+
+function showAlert(message, title = 'Notice') {
+    return new Promise(resolve => {
+        ensureUiMessageModal();
+        document.getElementById('uiMessageTitle').textContent = title;
+        document.getElementById('uiMessageBody').textContent = message;
+        const actions = document.getElementById('uiMessageActions');
+        actions.innerHTML = `<button class="btn btn-primary" id="uiMessageOkBtn">OK</button>`;
+        const close = () => {
+            closeModal('uiMessageModal');
+            resolve(true);
+        };
+        document.getElementById('uiMessageOkBtn').onclick = close;
+        openModal('uiMessageModal');
+    });
+}
+
+function showConfirm(message, title = 'Confirm Action') {
+    return new Promise(resolve => {
+        ensureUiMessageModal();
+        document.getElementById('uiMessageTitle').textContent = title;
+        document.getElementById('uiMessageBody').textContent = message;
+        const actions = document.getElementById('uiMessageActions');
+        actions.innerHTML = `
+            <button class="btn btn-danger" id="uiMessageConfirmBtn">Confirm</button>
+            <button class="btn btn-secondary" id="uiMessageCancelBtn">Cancel</button>
+        `;
+        document.getElementById('uiMessageConfirmBtn').onclick = () => {
+            closeModal('uiMessageModal');
+            resolve(true);
+        };
+        document.getElementById('uiMessageCancelBtn').onclick = () => {
+            closeModal('uiMessageModal');
+            resolve(false);
+        };
+        openModal('uiMessageModal');
+    });
+}
+
+window.alert = function(message) {
+    showAlert(String(message ?? ''), 'Notice');
+};
 
 function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.querySelectorAll('.sidebar nav a').forEach(el => el.classList.remove('active'));
     
     document.getElementById(tabId).classList.remove('hidden');
+    // Keep overview cards visible with the Manage Books section.
+    if (tabId === 'books-tab') {
+        const dashboardTab = document.getElementById('dashboard-tab');
+        if (dashboardTab) {
+            dashboardTab.classList.remove('hidden');
+        }
+    }
     document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
 }

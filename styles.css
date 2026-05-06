@@ -47,7 +47,11 @@ body.dark-mode .sidebar {
     background: #111827;
 }
 body.dark-mode .main-content {
-    background: rgb(105, 104, 104)
+     background: #111827;
+     color: white;
+}
+body.dark-mode .main-content .header{
+    color: white;
 }
 /* tables */
 body.dark-mode table {
@@ -282,12 +286,12 @@ body.dark-mode #recentActivities {
 }
 
 .action-btn {
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    margin: 0 4px;
+    margin: 0 2px;
 
     display: inline-flex;
     align-items: center;
@@ -296,6 +300,9 @@ body.dark-mode #recentActivities {
     font-size: 16px;
 
     transition: all 0.2s ease;
+}
+.actions-cell {
+    white-space: nowrap;
 }
 /* EDIT BUTTON */
 .action-btn.edit {
@@ -372,6 +379,16 @@ body.dark-mode #recentActivities {
 .sidebar nav a.active {
     background: #1e293b;
     color: var(--white);
+}
+.notif-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-left: 8px;
+    border-radius: 999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+    vertical-align: middle;
 }
 
 .main-content {
@@ -670,7 +687,7 @@ tr:hover td {
 /* ADD BUTTON */
 .controls-bar .btn {
    padding: 12px 22px;
-   margin-left: 50px;
+   margin-left: 0;
     font-size: 15px;
     font-weight: 500;
     border: none;
@@ -689,6 +706,32 @@ tr:hover td {
 .controls-bar .btn:active {
     transform: translateY(0) scale(0.98);
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 768px) {
+    .controls-bar > div {
+        width: 100%;
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .controls-bar input.form-control {
+        min-width: 0;
+        flex: 1 1 220px;
+    }
+
+    .controls-bar .btn {
+        flex: 1 1 160px;
+        justify-content: center;
+        display: inline-flex;
+        min-height: 44px;
+    }
+
+    .action-btn {
+        width: 44px;
+        height: 44px;
+    }
 }
 .badge.overdue {
     background: #ff3b3b;

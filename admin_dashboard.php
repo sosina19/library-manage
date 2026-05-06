@@ -20,6 +20,7 @@ requireRole('admin');
                 <a class="active" data-tab="dashboard-tab" onclick="switchTab('dashboard-tab'); loadDashboard();">Dashboard</a>
                 <a data-tab="users-tab" onclick="switchTab('users-tab'); loadUsers();">Manage Users</a>
                 <a data-tab="books-tab" onclick="switchTab('books-tab'); loadBooks();">View Books</a>
+                <a id="notificationsNavLink" data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications();">Notifications <span id="notificationsDot" class="notif-dot hidden"></span></a>
             </nav>
      <div class="profile-wrapper">
     <div class="profile-circle" onclick="toggleProfileCard()">
@@ -195,6 +196,27 @@ requireRole('admin');
                     <div class="table-responsive">
                         <table id="booksTable">
                             <thead><tr><th>ID</th><th>Title</th><th>Author</th><th>ISBN</th><th>Status</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div id="notifications-tab" class="tab-content hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Admin Notifications</h3>
+                    </div>
+                    <div class="controls-bar">
+                        <div style="display:flex; gap:10px; margin:15px 0;">
+                            <input type="text" id="adminAnnouncementInput" class="form-control" placeholder="📢 Send library announcement to students...">
+                            <button class="btn btn-primary btn-sm" onclick="sendAnnouncement()">Send</button>
+                            <button class="btn btn-secondary btn-sm" onclick="markAllNotificationsRead()">Mark all read</button>
+                            <button class="btn btn-danger btn-sm" onclick="clearNotifications()">Clear all</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="adminNotificationsTable">
+                            <thead><tr><th>Type</th><th>Message</th><th>Time</th><th>Action</th></tr></thead>
                             <tbody></tbody>
                         </table>
                     </div>
@@ -440,6 +462,59 @@ async function loadBooks() {
     }, 300); // delay for smooth typing
 }
 
+async function loadNotifications() {
+    const res = await apiCall('get_notifications');
+    if (res.success) {
+        const tbody = document.querySelector('#adminNotificationsTable tbody');
+        tbody.innerHTML = '';
+        let unreadCount = 0;
+        res.data.forEach(n => {
+            if (!Number(n.is_read)) unreadCount += 1;
+            tbody.innerHTML += `
+                <tr>
+                    <td><span class="badge">${n.title}</span></td>
+                    <td>${n.message}</td>
+                    <td>${n.created_at}</td>
+                    <td>${Number(n.is_read) ? '<span class="badge returned">Read</span>' : `<button class="btn btn-secondary btn-sm" onclick="markNotificationRead(${n.id})">Mark read</button>`}</td>
+                </tr>
+            `;
+        });
+        updateNotificationDot(unreadCount);
+    }
+}
+function updateNotificationDot(unreadCount) {
+    const dot = document.getElementById('notificationsDot');
+    if (!dot) return;
+    dot.classList.toggle('hidden', unreadCount === 0);
+}
+async function markNotificationRead(id) {
+    const res = await apiCall('mark_notification_read', { id });
+    if (res.success) loadNotifications();
+}
+async function markAllNotificationsRead() {
+    const res = await apiCall('mark_all_notifications_read');
+    if (res.success) loadNotifications();
+}
+async function clearNotifications() {
+    if (!await showConfirm('Clear all notifications?', 'Clear Notifications')) return;
+    const res = await apiCall('clear_notifications');
+    if (res.success) loadNotifications();
+}
+
+async function sendAnnouncement() {
+    const input = document.getElementById('adminAnnouncementInput');
+    const message = input.value.trim();
+    if (!message) return;
+    const res = await apiCall('add_announcement', { title: 'Library announcement', message });
+    if (res.success) {
+        input.value = '';
+        loadNotifications();
+        alert('Announcement sent to students.');
+    } else {
+        alert(res.message || 'Failed to send announcement');
+    }
+}
+
         document.getElementById('userForm').addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -486,6 +561,8 @@ async function loadBooks() {
         }
         // Initialize Dashboard
         loadDashboard();
+        loadNotifications();
+        setInterval(loadNotifications, 30000);
     </script>
 </body>
 </html>

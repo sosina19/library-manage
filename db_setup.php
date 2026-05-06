@@ -29,9 +29,24 @@ $db->exec("CREATE TABLE IF NOT EXISTS transactions (
     user_id INTEGER,
     borrow_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     return_date DATETIME,
+    due_date DATETIME,
+    fine_amount REAL DEFAULT 0,
     status TEXT DEFAULT 'Borrowed',
     FOREIGN KEY(book_id) REFERENCES books(id),
     FOREIGN KEY(user_id) REFERENCES users(id)
+)");
+
+// Notifications table
+$db->exec("CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    target_role TEXT,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    event_key TEXT UNIQUE,
+    is_read INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )");
 
 // Insert default admin

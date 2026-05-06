@@ -19,7 +19,7 @@ requireRole('user');
             <nav>
                 <a class="active" data-tab="browse-tab" onclick="switchTab('browse-tab'); loadAvailableBooks();">Browse Books</a>
                 <a data-tab="my-books-tab" onclick="switchTab('my-books-tab'); loadMyTransactions();">My Books</a>
-                <a data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications();">Notifications</a>
+                <a id="notificationsNavLink" data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications();">Notifications <span id="notificationsDot" class="notif-dot hidden"></span></a>
             </nav>
             <!-- <div class="notification-panel">
                 <h4>Notifications</h4>
@@ -79,7 +79,26 @@ requireRole('user');
                     </div>
                     <div class="table-responsive">
                         <table id="myBooksTable">
-                            <thead><tr><th>Book Title</th><th>Borrow Date</th><th>Status</th><th>Action</th></tr></thead>
+                            <thead><tr><th>Book Title</th><th>Borrow Date</th><th>Return Date</th><th>Due Date</th><th>Status</th><th>Action</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div id="notifications-tab" class="tab-content hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>My Notifications</h3>
+                    </div>
+                    <div class="controls-bar">
+                        <div style="display:flex; gap:10px; margin:15px 0;">
+                            <button class="btn btn-secondary btn-sm" onclick="markAllNotificationsRead()">Mark all read</button>
+                            <button class="btn btn-danger btn-sm" onclick="clearNotifications()">Clear all</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="notificationsTable">
+                            <thead><tr><th>Type</th><th>Message</th><th>Time</th><th>Action</th></tr></thead>
                             <tbody></tbody>
                         </table>
                     </div>
@@ -166,47 +185,41 @@ requireRole('user');
             }
         });
         async function loadNotifications() {
-    const res = await apiCall('get_my_transactions');
-
-    if (res.success) {
-        const list = document.getElementById('notificationList');
-        list.innerHTML = '';
-
-        res.data.forEach(t => {
-
-            if (t.status === 'Borrowed' && t.due_date) {
-                const daysLeft = Math.ceil(
-                    (new Date(t.due_date) - new Date()) / (1000 * 60 * 60 * 24)
-                );
-
-                let msg = '';
-
-                if (daysLeft < 0) {
-                    msg = `🔴 ${t.book_title} overdue`;
-                } else if (daysLeft <= 2) {
-                    msg = `🟡 ${t.book_title} due soon`;
-                } else {
-                    msg = `📘 ${t.book_title} - ${daysLeft} days left`;
-                }
-
-                list.innerHTML += `<li onclick="showBookInfo('${t.book_title}', ${daysLeft})">
-                    ${msg}
-                </li>`;
+            const res = await apiCall('get_notifications');
+            if (res.success) {
+                const tbody = document.querySelector('#notificationsTable tbody');
+                tbody.innerHTML = '';
+                let unreadCount = 0;
+                res.data.forEach(n => {
+                    if (!Number(n.is_read)) unreadCount += 1;
+                    tbody.innerHTML += `<tr>
+                        <td><span class="badge">${n.title}</span></td>
+                        <td>${n.message}</td>
+                        <td>${n.created_at}</td>
+                        <td>${Number(n.is_read) ? '<span class="badge returned">Read</span>' : `<button class="btn btn-secondary btn-sm" onclick="markNotificationRead(${n.id})">Mark read</button>`}</td>
+                    </tr>`;
+                });
+                updateNotificationDot(unreadCount);
             }
-        });
-    }
-}          function showBookInfo(title, daysLeft) {
-    let text = '';
-
-    if (daysLeft < 0) {
-        text = `${title} is overdue by ${Math.abs(daysLeft)} days`;
-    } else {
-        text = `${title} has ${daysLeft} days left`;
-    }
-
-    document.getElementById('infoText').innerText = text;
-    openModal('infoModal');
-}
+        }
+        function updateNotificationDot(unreadCount) {
+            const dot = document.getElementById('notificationsDot');
+            if (!dot) return;
+            dot.classList.toggle('hidden', unreadCount === 0);
+        }
+        async function markNotificationRead(id) {
+            const res = await apiCall('mark_notification_read', { id });
+            if (res.success) loadNotifications();
+        }
+        async function markAllNotificationsRead() {
+            const res = await apiCall('mark_all_notifications_read');
+            if (res.success) loadNotifications();
+        }
+        async function clearNotifications() {
+            if (!await showConfirm('Clear all notifications?', 'Clear Notifications')) return;
+            const res = await apiCall('clear_notifications');
+            if (res.success) loadNotifications();
+        }
 
         let allBooks = [];
 
@@ -243,11 +256,13 @@ requireRole('user');
         }
 
         async function borrowBook(book_id) {
-            if(confirm('Do you want to borrow this book?')) {
-                const res = await apiCall('borrow_book', {book_id});
+            if(await showConfirm('Do you want to send this borrow request?', 'Confirm Borrow Request')) {
+                const res = await apiCall('request_borrow', {book_id});
                 if(res.success) {
-                    alert('Book borrowed successfully!');
+                    alert('Borrow request sent. Wait for librarian approval.');
                     loadAvailableBooks();
+                    loadMyTransactions();
+                    loadNotifications();
                 } else {
                     alert(res.message);
                 }
@@ -286,8 +301,15 @@ requireRole('user');
                 }
                 // 2. Action button
                 let actionHtml = t.status === 'Borrowed' 
-                    ? `<button class="btn btn-secondary btn-sm" onclick="returnBook(${t.book_id})">Return</button>`
+                    ? `<button class="btn btn-secondary btn-sm" onclick="returnBook(${t.book_id})">Request Return</button>`
                     : `<span class="badge returned">Returned on ${t.return_date}</span>`;
+                if (t.status === 'Pending') {
+                    actionHtml = `<span class="badge warning">Pending librarian approval</span>`;
+                } else if (t.status === 'Return Pending') {
+                    actionHtml = `<span class="badge warning">Waiting return confirmation</span>`;
+                } else if (t.status === 'Rejected') {
+                    actionHtml = `<span class="badge overdue">Request rejected</span>`;
+                }
 
                 // 3. Table row
                 tbody.innerHTML += `
@@ -298,7 +320,7 @@ requireRole('user');
                         <td>${t.due_date}</td>
                         <td>
                             <span class="badge ${badgeClass}">
-                                ${t.status}
+                                ${statusText}
                             </span>
                         </td>
                         <td>${actionHtml}</td>
@@ -309,11 +331,13 @@ requireRole('user');
         }
 
         async function returnBook(book_id) {
-            if(confirm('Are you sure you want to return this book?')) {
-                const res = await apiCall('return_book', {book_id});
+            if(await showConfirm('Send return request to librarian?', 'Confirm Return Request')) {
+                const res = await apiCall('request_return', {book_id});
                 if(res.success) {
-                    alert('Book returned successfully!');
+                    alert('Return request sent. Wait for librarian confirmation.');
                     loadMyTransactions();
+                    loadNotifications();
+                    loadAvailableBooks();
                 } else {
                     alert(res.message);
                 }
@@ -323,6 +347,7 @@ requireRole('user');
         // Initialize
         loadAvailableBooks();
         loadNotifications();
+        setInterval(loadNotifications, 30000);
     </script>
 </body>
 </html>
