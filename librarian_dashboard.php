@@ -20,7 +20,8 @@ requireRole('librarian');
                 <a class="active" data-tab="books-tab" onclick="switchTab('books-tab'); loadBooks();">Manage Books</a>
                 <a data-tab="catalog-tab" onclick="switchTab('catalog-tab'); loadCatalogBooks();">Book Catalog</a>
                 <a data-tab="transactions-tab" onclick="switchTab('transactions-tab'); loadTransactions();">Transactions</a>
-                <a id="notificationsNavLink" data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications();">Notifications <span id="notificationsDot" class="notif-dot hidden"></span></a>
+                <a id="notificationsNavLink" data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications();">Notifications
+                 <span id="notificationsDot" class="notif-dot hidden"></span></a>
             </nav>
              <div class="profile-wrapper">
         <div class="profile-circle" onclick="toggleProfileCard()">
@@ -35,7 +36,7 @@ requireRole('librarian');
 
             <div>
                 <h4><?php echo htmlspecialchars($_SESSION['username']); ?></h4>
-                <small><?php echo htmlspecialchars($_SESSION['email'] ?? ''); ?></small>
+                <h1><?php echo htmlspecialchars($_SESSION['email'] ?? ''); ?></h1>
             </div>
         </div>
 
@@ -163,13 +164,18 @@ requireRole('librarian');
                     <div class="controls-bar">
                         <div style="display:flex; gap:10px; margin:15px 0;">
                             <div style="position:relative; flex:1; min-width:260px;">
-                                <input type="text" id="targetUserSearch" class="form-control" list="userRecipientsList" placeholder="🔎 Search user by username..." autocomplete="off" oninput="showRecipientSuggestions(this.value)" onfocus="showRecipientSuggestions(this.value)">
-                                <div id="recipientSuggestions" class="hidden" style="position:absolute; top:44px; left:0; right:0; max-height:220px; overflow:auto; background:#fff; border:1px solid #e2e8f0; border-radius:10px; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.12);"></div>
+                                <input type="text" id="targetUserSearch" 
+                                class="form-control" list="userRecipientsList"
+                                 placeholder="🔎 Search user by username..." autocomplete="off" oninput="showRecipientSuggestions(this.value)" onfocus="showRecipientSuggestions(this.value)">
+                                <div id="recipientSuggestions" 
+                                class="hidden" style="position:absolute; 
+                                top:44px; left:0; right:0; max-height:220px; overflow:auto; 
+                                background:#fff; border:1px solid #e2e8f0; border-radius:10px; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.12);"></div>
                             </div>
                             <datalist id="userRecipientsList"></datalist>
                             <input type="text" id="announcementInput" class="form-control" placeholder="📢 Send library announcement to students...">
                             <button class="btn btn-primary btn-sm" onclick="sendDirectNotification()">Send to User</button>
-                            <button class="btn btn-secondary btn-sm" onclick="sendAnnouncement()">Broadcast</button>
+                            <button class="btn btn-secondary btn-sm" onclick="sendAnnouncement()">Broadcast to all</button>
                         </div>
                     </div>
                     <div class="table-responsive">

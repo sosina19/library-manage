@@ -50,6 +50,10 @@ requireRole('admin');
         <main class="main-content">
             <div class="header">
                 <h1>👋Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
+                <div id="notificationHeaderActions" style="display:none; gap:10px; align-items:center;">
+                    <button class="btn btn-secondary btn-sm" onclick="markAllNotificationsRead()">Mark all read</button>
+                    <button class="btn btn-danger btn-sm" onclick="clearNotifications()">Clear all</button>
+                </div>
             </div>
 
             <!-- DASHBOARD TAB -->
@@ -207,11 +211,22 @@ requireRole('admin');
                         <h3>Admin Notifications</h3>
                     </div>
                     <div class="controls-bar">
-                        <div style="display:flex; gap:10px; margin:15px 0;">
-                            <input type="text" id="adminAnnouncementInput" class="form-control" placeholder="📢 Send library announcement to students...">
-                            <button class="btn btn-primary btn-sm" onclick="sendAnnouncement()">Send</button>
-                            <button class="btn btn-secondary btn-sm" onclick="markAllNotificationsRead()">Mark all read</button>
-                            <button class="btn btn-danger btn-sm" onclick="clearNotifications()">Clear all</button>
+                        <div style="display:flex; gap:10px; margin:15px 0; flex-wrap:wrap; align-items:center;">
+                            <select id="adminRecipientRole" class="form-control" style="max-width:180px;" onchange="onRecipientRoleChange()">
+                                <option value="user">👤 Users</option>
+                                <option value="librarian">📚 Librarians</option>
+                            </select>
+                            <div style="position:relative; flex:1; min-width:260px;">
+                                <input type="text" id="adminTargetUserSearch" class="form-control" 
+                                list="adminRecipientsList" placeholder="🔎 Search recipient..." autocomplete="off" 
+                                oninput="showAdminRecipientSuggestions(this.value)" onfocus="showAdminRecipientSuggestions(this.value)">
+                                <div id="adminRecipientSuggestions" class="hidden" style="position:absolute; top:44px; left:0; right:0; max-height:220px; overflow:auto; background:#fff; border:1px solid #e2e8f0; border-radius:10px; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.12);"></div>
+                            </div>
+                            <datalist id="adminRecipientsList"></datalist>
+                            <input type="text" id="adminAnnouncementInput" class="form-control" 
+                            style="flex:1; min-width:260px;" placeholder="✉️ Write message...">
+                            <button class="btn btn-primary btn-sm" onclick="sendDirectNotification()">Send </button>
+                            <button class="btn btn-secondary btn-sm" onclick="sendAnnouncement()">Broadcast </button>
                         </div>
                     </div>
                     <div class="table-responsive">
@@ -501,17 +516,129 @@ async function clearNotifications() {
     if (res.success) loadNotifications();
 }
 
+let adminRecipientMap = {};
+let adminRecipientItems = [];
+async function loadRecipients() {
+    const res = await apiCall('get_notification_recipients');
+    const list = document.getElementById('adminRecipientsList');
+    if (!list) return;
+    if (res.success) {
+        list.innerHTML = '';
+        adminRecipientMap = {};
+        const selectedRole = document.getElementById('adminRecipientRole')?.value || 'user';
+        adminRecipientItems = [];
+        res.data
+            .filter(u => u.role === selectedRole)
+            .forEach(u => {
+                const label = `${u.username} (#${u.id})`;
+                adminRecipientMap[label] = u.id;
+                adminRecipientItems.push({ id: u.id, label, username: u.username });
+                list.innerHTML += `<option value="${label}"></option>`;
+            });
+    }
+}
+function onRecipientRoleChange() {
+    const search = document.getElementById('adminTargetUserSearch');
+    if (search) search.value = '';
+    const box = document.getElementById('adminRecipientSuggestions');
+    if (box) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+    }
+    loadRecipients();
+}
+function showAdminRecipientSuggestions(query) {
+    const box = document.getElementById('adminRecipientSuggestions');
+    if (!box) return;
+    const q = (query || '').trim().toLowerCase();
+    if (!q) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        return;
+    }
+    const matches = adminRecipientItems
+        .filter(u => u.username.toLowerCase().includes(q) || u.label.toLowerCase().includes(q))
+        .slice(0, 8);
+    if (matches.length === 0) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        return;
+    }
+    box.innerHTML = matches.map(u => `
+        <button type="button" style="display:block; width:100%; text-align:left; padding:10px 12px; border:none; background:white; cursor:pointer;"
+            onclick="selectAdminRecipient('${u.label.replace(/'/g, "\\'")}')">${u.label}</button>
+    `).join('');
+    box.classList.remove('hidden');
+}
+function selectAdminRecipient(label) {
+    document.getElementById('adminTargetUserSearch').value = label;
+    const box = document.getElementById('adminRecipientSuggestions');
+    box.classList.add('hidden');
+    box.innerHTML = '';
+}
+async function sendDirectNotification() {
+    const selected = document.getElementById('adminTargetUserSearch').value.trim();
+    const userId = adminRecipientMap[selected];
+    const input = document.getElementById('adminAnnouncementInput');
+    const message = input.value.trim();
+    const roleLabel = document.getElementById('adminRecipientRole')?.value === 'librarian' ? 'librarian' : 'user';
+    if (!userId || !message) {
+        alert(`Search and select a ${roleLabel}, then write message.`);
+        return;
+    }
+    const res = await apiCall('send_user_notification', {
+        user_id: userId,
+        title: 'Message from admin',
+        message
+    });
+    if (res.success) {
+        input.value = '';
+        document.getElementById('adminTargetUserSearch').value = '';
+        const box = document.getElementById('adminRecipientSuggestions');
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        loadNotifications();
+        alert(`Notification sent to selected ${roleLabel}.`);
+    } else {
+        alert(res.message || 'Failed to send notification');
+    }
+}
+document.addEventListener('click', function (e) {
+    const searchWrap = document.getElementById('adminTargetUserSearch');
+    const box = document.getElementById('adminRecipientSuggestions');
+    if (!searchWrap || !box) return;
+    if (e.target !== searchWrap && !box.contains(e.target)) {
+        box.classList.add('hidden');
+    }
+});
+function updateHeaderNotificationActions() {
+    const actions = document.getElementById('notificationHeaderActions');
+    const notificationsTab = document.getElementById('notifications-tab');
+    if (!actions || !notificationsTab) return;
+    actions.style.display = notificationsTab.classList.contains('hidden') ? 'none' : 'flex';
+}
+document.querySelectorAll('.sidebar nav a').forEach(link => {
+    link.addEventListener('click', () => {
+        setTimeout(updateHeaderNotificationActions, 0);
+    });
+});
+
 async function sendAnnouncement() {
     const input = document.getElementById('adminAnnouncementInput');
     const message = input.value.trim();
+    const targetRole = document.getElementById('adminRecipientRole')?.value === 'librarian' ? 'librarian' : 'user';
     if (!message) return;
-    const res = await apiCall('add_announcement', { title: 'Library announcement', message });
+    const res = await apiCall('add_announcement', {
+        title: targetRole === 'librarian' ? 'Admin message to librarians' : 'Library announcement',
+        message,
+        target_role: targetRole
+    });
     if (res.success) {
         input.value = '';
         loadNotifications();
-        alert('Announcement sent to students.');
+        showNotification(targetRole === 'librarian' ? 'Broadcast sent to librarians.' : 'Broadcast sent to users.');
     } else {
-        alert(res.message || 'Failed to send announcement');
+        showNotification(res.message || 'Failed to send broadcast', true);
     }
 }
 
@@ -562,6 +689,8 @@ async function sendAnnouncement() {
         // Initialize Dashboard
         loadDashboard();
         loadNotifications();
+        loadRecipients();
+        updateHeaderNotificationActions();
         setInterval(loadNotifications, 30000);
     </script>
 </body>

@@ -388,17 +388,22 @@ try {
             if ($role !== 'admin' && $role !== 'librarian') { requireRole('librarian'); }
             $title = trim($_POST['title'] ?? 'Library announcement');
             $message = trim($_POST['message'] ?? '');
+            $targetRole = trim($_POST['target_role'] ?? 'user');
             if ($message === '') {
                 echo json_encode(['success' => false, 'message' => 'Announcement message is required']);
                 break;
             }
+            if (!in_array($targetRole, ['user', 'librarian'], true)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid announcement target']);
+                break;
+            }
             createRoleNotification(
                 $db,
-                'user',
+                $targetRole,
                 'library_announcement',
                 $title,
                 "📢 {$message}",
-                'announcement_' . md5($title . '_' . $message . '_' . date('Y-m-d-H-i-s'))
+                'announcement_' . $targetRole . '_' . md5($title . '_' . $message . '_' . date('Y-m-d-H-i-s'))
             );
             echo json_encode(['success' => true]);
             break;

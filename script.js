@@ -44,6 +44,7 @@ function ensureUiMessageModal() {
     wrapper.innerHTML = `
         <div id="uiMessageModal" class="modal">
             <div class="modal-content" style="max-width:420px; text-align:center;">
+                <button class="modal-close" id="uiMessageCloseBtn" aria-label="Close">&times;</button>
                 <h3 id="uiMessageTitle" style="margin-bottom:10px;color:black;">Notice</h3>
                 <p id="uiMessageBody" style="margin-bottom:20px; color:black;"></p>
                 <div id="uiMessageActions" style="display:flex; justify-content:center; gap:10px;"></div>
@@ -65,6 +66,7 @@ function showAlert(message, title = 'Notice') {
             closeModal('uiMessageModal');
             resolve(true);
         };
+        document.getElementById('uiMessageCloseBtn').onclick = close;
         document.getElementById('uiMessageOkBtn').onclick = close;
         openModal('uiMessageModal');
     });
@@ -84,10 +86,12 @@ function showConfirm(message, title = 'Confirm Action') {
             closeModal('uiMessageModal');
             resolve(true);
         };
-        document.getElementById('uiMessageCancelBtn').onclick = () => {
+        const cancel = () => {
             closeModal('uiMessageModal');
             resolve(false);
         };
+        document.getElementById('uiMessageCancelBtn').onclick = cancel;
+        document.getElementById('uiMessageCloseBtn').onclick = cancel;
         openModal('uiMessageModal');
     });
 }
