@@ -132,7 +132,7 @@ requireRole('librarian');
     </div>
 
     <!-- Add/Edit Book Modal -->
-    <div id="bookModal" class="modal">
+    <div id="bookModal" class="modal ">
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal('bookModal')">&times;</button>
             <h3 class="modal-title">Manage Book</h3>
@@ -158,6 +158,21 @@ requireRole('librarian');
             </form>
         </div>
     </div>
+      <div id="deleteModal" class="modal">
+    <div class="modal-content" style="max-width:400px; text-align:center;">
+        
+        <h3 style="margin-bottom:10px;color:black;">⚠️ Confirm Delete</h3>
+        <p style="margin-bottom:20px; color:black;">Are you sure you want to delete this user?</p>
+
+        <input type="hidden" id="deleteUserId">
+
+        <div style="display:flex; justify-content:center; gap:10px;">
+            <button class="btn btn-danger" onclick="confirmDelete()">Delete</button>
+            <button class="btn btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
+        </div>
+
+    </div>
+</div>
      <div id="logoutModal" class="modal">
     <div class="modal-content" style="max-width:400px; text-align:center;">
 
@@ -236,7 +251,7 @@ requireRole('librarian');
                 document.getElementById('profileCard').classList.add('hidden');
             }
         });
-        
+
         async function loadBooks() {
             const res = await apiCall('get_books');
             if(res.success) {
@@ -250,8 +265,14 @@ requireRole('librarian');
                         <td>${b.isbn}</td>
                         <td><span class="badge ${b.status === 'Available' ? 'available' : 'borrowed'}">${b.status}</span></td>
                         <td>
-                            <button class="action-btn" onclick='editBook(${JSON.stringify(b).replace(/'/g, "&#39;")})'>✏️</button>
-                            <button class="action-btn" onclick="deleteBook(${b.id})">❌</button>
+                         <button class="action-btn edit"
+                            onclick='editBook(${JSON.stringify(b).replace(/'/g, "&#39;")})'>
+                            ✏️
+                        </button>
+                        <button class="action-btn delete"
+                            onclick="deleteBook(${b.id})">
+                            🗑️
+                        </button>
                         </td>
                     </tr>`;
                 });
@@ -273,6 +294,8 @@ requireRole('librarian');
             row.style.display = text.includes(query) ? "" : "none";
         });
     } 
+    
+    // 
         async function loadTransactions() {
             const res = await apiCall('get_transactions');
             if(res.success) {
@@ -331,14 +354,28 @@ requireRole('librarian');
                 alert(res.message);
             }
         });
+// Store selected book ID for deletion
+       let selectedBookId = null;
 
-        async function deleteBook(id) {
-            if(confirm('Are you sure you want to delete this book?')) {
-                const res = await apiCall('delete_book', {id});
-                if(res.success) loadBooks();
-                else alert(res.message);
-            }
-        }
+function deleteBook(id) {
+    selectedBookId = id;
+    openModal('deleteModal');
+} 
+async function confirmDelete() {
+
+    if (!selectedBookId) return;
+
+    const res = await apiCall('delete_book', { id: selectedBookId });
+
+    if (res.success) {
+        closeModal('deleteModal');
+        loadBooks();
+    } else {
+        alert(res.message);
+    }
+
+    selectedBookId = null;
+}
 
         // Initialize
         loadBooks();
