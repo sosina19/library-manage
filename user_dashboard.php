@@ -19,11 +19,16 @@ requireRole('user');
             <nav>
                 <a class="active" data-tab="browse-tab" onclick="switchTab('browse-tab'); loadAvailableBooks();">Browse Books</a>
                 <a data-tab="my-books-tab" onclick="switchTab('my-books-tab'); loadMyTransactions();">My Books</a>
+                <a data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications();">Notifications</a>
             </nav>
-            <div class="profile-wrapper">
-    <div class="profile-circle" onclick="toggleProfileCard()">
-        <?php echo strtoupper(substr($_SESSION['username'], 0, 1)); ?>
-    </div>
+            <!-- <div class="notification-panel">
+                <h4>Notifications</h4>
+                <ul id="notificationList"></ul>
+            </div> -->
+     <div class="profile-wrapper">
+        <div class="profile-circle" onclick="toggleProfileCard()">
+            <?php echo strtoupper(substr($_SESSION['username'], 0, 1)); ?>
+        </div>
 
     <div id="profileCard" class="profile-card hidden">
         <div class="profile-header">
@@ -95,6 +100,13 @@ requireRole('user');
 
     </div>
 </div>
+<div id="infoModal" class="modal">
+    <div class="modal-content">
+        <h3>Book Info</h3>
+        <p id="infoText"></p>
+        <button onclick="closeModal('infoModal')">Close</button>
+    </div>
+</div>
 
     <script src="script.js"></script>
     <script>
@@ -153,6 +165,48 @@ requireRole('user');
                 document.getElementById('profileCard').classList.add('hidden');
             }
         });
+        async function loadNotifications() {
+    const res = await apiCall('get_my_transactions');
+
+    if (res.success) {
+        const list = document.getElementById('notificationList');
+        list.innerHTML = '';
+
+        res.data.forEach(t => {
+
+            if (t.status === 'Borrowed' && t.due_date) {
+                const daysLeft = Math.ceil(
+                    (new Date(t.due_date) - new Date()) / (1000 * 60 * 60 * 24)
+                );
+
+                let msg = '';
+
+                if (daysLeft < 0) {
+                    msg = `🔴 ${t.book_title} overdue`;
+                } else if (daysLeft <= 2) {
+                    msg = `🟡 ${t.book_title} due soon`;
+                } else {
+                    msg = `📘 ${t.book_title} - ${daysLeft} days left`;
+                }
+
+                list.innerHTML += `<li onclick="showBookInfo('${t.book_title}', ${daysLeft})">
+                    ${msg}
+                </li>`;
+            }
+        });
+    }
+}          function showBookInfo(title, daysLeft) {
+    let text = '';
+
+    if (daysLeft < 0) {
+        text = `${title} is overdue by ${Math.abs(daysLeft)} days`;
+    } else {
+        text = `${title} has ${daysLeft} days left`;
+    }
+
+    document.getElementById('infoText').innerText = text;
+    openModal('infoModal');
+}
 
         let allBooks = [];
 
@@ -208,22 +262,28 @@ requireRole('user');
                 res.data.forEach(t => {
                     // 1. Detect overdue
                 let badgeClass = 'borrowed';
+            let statusText = t.status;
 
-                if (t.status === 'Returned') {
+            if (t.status === 'Borrowed' && t.due_date) {
+
+                const today = new Date();
+                const due = new Date(t.due_date);
+
+                const daysLeft = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+                    if (daysLeft < 0) {
+                        badgeClass = 'danger';
+                        statusText = `Overdue (${Math.abs(daysLeft)} days late)`;
+                    }
+                    else if (daysLeft <= 2) {
+                        badgeClass = 'warning';
+                        statusText = `Due soon (${daysLeft} days left)`;
+                    }
+                }
+                else if (t.status === 'Returned') {
                     badgeClass = 'returned';
-                } 
-                else if (t.due_date && new Date(t.due_date) < new Date()) {
-                    badgeClass = 'overdue';
+                    statusText = 'Returned';
                 }
-              else if (t.due_date) {
-                const daysLeft = Math.ceil(
-                    (new Date(t.due_date) - new Date()) / (1000 * 60 * 60 * 24)
-                );
-
-                if (daysLeft <= 2) {
-                    badgeClass = 'warning';
-                }
-            }
                 // 2. Action button
                 let actionHtml = t.status === 'Borrowed' 
                     ? `<button class="btn btn-secondary btn-sm" onclick="returnBook(${t.book_id})">Return</button>`
@@ -234,6 +294,8 @@ requireRole('user');
                     <tr>
                         <td>${t.book_title}</td>
                         <td>${t.borrow_date}</td>
+                        <td>${t.return_date}</td>
+                        <td>${t.due_date}</td>
                         <td>
                             <span class="badge ${badgeClass}">
                                 ${t.status}
@@ -260,6 +322,7 @@ requireRole('user');
 
         // Initialize
         loadAvailableBooks();
+        loadNotifications();
     </script>
 </body>
 </html>

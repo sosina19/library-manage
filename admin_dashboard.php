@@ -59,37 +59,37 @@ requireRole('admin');
                     </div>
             <div class="stats-grid">
                 <div class="stat-box">
-                    <h4>Total Books</h4>
-                    <p id="totalBooks">0</p>
+                    <h4>📚 Total Books</h4>
+                    <p id=" TotalBooks">0</p>
                 </div>
 
                 <div class="stat-box">
-                    <h4>Available Books</h4>
+                    <h4> 📚 Available Books</h4>
                     <p id="availableBooks">0</p>
                 </div>
 
                 <div class="stat-box">
-                    <h4>Borrowed Books</h4>
+                    <h4>🔄Borrowed Books</h4>
                     <p id="borrowedBooks">0</p>
                 </div>
 
                 <div class="stat-box">
-                    <h4>Total Users</h4>
+                    <h4>👤 Total Users</h4>
                     <p id="totalUsers">0</p>
                 </div>
 
                 <div class="stat-box">
-                    <h4>Admins</h4>
+                    <h4>🛡️Admins</h4>
                     <p id="totalAdmins">0</p>
                 </div>
 
                 <div class="stat-box">
-                    <h4>Librarians</h4>
+                    <h4>📚Librarians</h4>
                     <p id="totalLibrarians">0</p>
                 </div>
 
                 <div class="stat-box">
-                    <h4>Students</h4>
+                    <h4>👩‍🎓 Students</h4>
                     <p id="totalNormalUsers">0</p>
                 </div>
             </div>

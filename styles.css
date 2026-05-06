@@ -695,3 +695,15 @@ tr:hover td {
     color: white;
     font-weight: bold;
 }
+.badge.warning {
+    background: orange;
+    color: white;
+}
+.badge.borrowed {
+    background: #3498db;
+    color: white;
+}
+.badge.returned {
+    background: #2ecc71;
+    color: white;
+}
