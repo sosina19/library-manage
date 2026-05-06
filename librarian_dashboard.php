@@ -86,7 +86,7 @@ requireRole('librarian');
                 </div>
             </div>
                 </div>
-            
+            </div>
 
             <!-- Books Tab -->
             <div id="books-tab" class="tab-content">
