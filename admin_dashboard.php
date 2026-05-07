@@ -65,7 +65,7 @@ requireRole('admin');
             <div class="stats-grid">
                 <div class="stat-box">
                     <h4>📚 Total Books</h4>
-                    <p id=" TotalBooks">0</p>
+                    <p id="totalBooks">0</p>
                 </div>
 
                 <div class="stat-box">

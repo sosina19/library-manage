@@ -105,12 +105,5 @@ function switchTab(tabId) {
     document.querySelectorAll('.sidebar nav a').forEach(el => el.classList.remove('active'));
     
     document.getElementById(tabId).classList.remove('hidden');
-    // Keep overview cards visible with the Manage Books section.
-    if (tabId === 'books-tab') {
-        const dashboardTab = document.getElementById('dashboard-tab');
-        if (dashboardTab) {
-            dashboardTab.classList.remove('hidden');
-        }
-    }
     document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
 }
