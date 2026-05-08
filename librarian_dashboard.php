@@ -336,6 +336,16 @@ requireRole('librarian');
                 });
             }
         }
+        function showManageBooksView() {
+            switchTab('books-tab');
+            // Keep overview cards visible with Manage Books.
+            const dashboardTab = document.getElementById('dashboard-tab');
+            if (dashboardTab) {
+                dashboardTab.classList.remove('hidden');
+            }
+            loadDashboardStats();
+            loadBooks();
+        }
         // Search functionality
         document.getElementById("bookSearch").addEventListener("input", function () {
         filterTable("booksTable", this.value);
@@ -654,13 +664,21 @@ async function confirmDelete() {
 }
 
         // Initialize
-        loadBooks();
+        showManageBooksView();
         loadCatalogBooks();
         loadDashboardStats();
         loadNotifications();
         loadRecipients();
         updateHeaderNotificationActions();
         setInterval(loadNotifications, 30000);
+
+        // Ensure sidebar "Manage Books" always restores the full view.
+        const manageBooksLink = document.querySelector('[data-tab="books-tab"]');
+        if (manageBooksLink) {
+            manageBooksLink.onclick = function () {
+                showManageBooksView();
+            };
+        }
     </script>
 </body>
 </html>
