@@ -358,6 +358,7 @@ requireRole('admin');
                 document.getElementById('profileCard').classList.add('hidden');
             }
         });
+        // Load dashboard stats and recent activities
         async function loadDashboard() {
             const res = await apiCall('dashboard_stats');
             if(res.success) {
@@ -388,7 +389,7 @@ requireRole('admin');
                 });
             }
         }
-
+   // Load users with optional search and filter, then render in the Manage Users tab with Edit/Delete actions
    async function loadUsers() {
     const filter = document.getElementById('userFilter').value;
     const search = document.getElementById('userSearch').value;
@@ -424,6 +425,7 @@ requireRole('admin');
         });
             }
         } 
+        // Open delete confirmation modal and set user ID to be deleted
         function openDeleteModal(id) {
             document.getElementById('deleteUserId').value = id;
             openModal('deleteModal');
@@ -444,7 +446,7 @@ requireRole('admin');
         }
 
        let bookSearchTimeout;
-
+// Load books with optional search and filter, then render in the Books tab with status badges
 async function loadBooks() {
     clearTimeout(bookSearchTimeout);
 
@@ -476,7 +478,7 @@ async function loadBooks() {
         }
     }, 300); // delay for smooth typing
 }
-
+// Load admin notifications, render in the Notifications tab with actions to mark as read or clear, and update nav dot for unread count
 async function loadNotifications() {
     const res = await apiCall('get_notifications');
     if (res.success) {
@@ -497,19 +499,23 @@ async function loadNotifications() {
         updateNotificationDot(unreadCount);
     }
 }
+// Show/hide notification dot in nav based on unread count
 function updateNotificationDot(unreadCount) {
     const dot = document.getElementById('notificationsDot');
     if (!dot) return;
     dot.classList.toggle('hidden', unreadCount === 0);
 }
+// Mark a single notification as read, then reload notifications to update UI and nav dot
 async function markNotificationRead(id) {
     const res = await apiCall('mark_notification_read', { id });
     if (res.success) loadNotifications();
 }
+// Mark all notifications as read, then reload notifications to update UI and nav dot
 async function markAllNotificationsRead() {
     const res = await apiCall('mark_all_notifications_read');
     if (res.success) loadNotifications();
 }
+// Clear all notifications after confirmation, then reload notifications to update UI and nav dot
 async function clearNotifications() {
     if (!await showConfirm('Clear all notifications?', 'Clear Notifications')) return;
     const res = await apiCall('clear_notifications');
@@ -518,6 +524,7 @@ async function clearNotifications() {
 
 let adminRecipientMap = {};
 let adminRecipientItems = [];
+// Load notification recipients (users or librarians based on selected role) for the direct notification form, and populate datalist and suggestions for search-as-you-type functionality
 async function loadRecipients() {
     const res = await apiCall('get_notification_recipients');
     const list = document.getElementById('adminRecipientsList');
@@ -537,6 +544,7 @@ async function loadRecipients() {
             });
     }
 }
+// When recipient role filter changes, clear search and suggestions, then reload recipients for the new role
 function onRecipientRoleChange() {
     const search = document.getElementById('adminTargetUserSearch');
     if (search) search.value = '';
@@ -547,6 +555,7 @@ function onRecipientRoleChange() {
     }
     loadRecipients();
 }
+// Show search-as-you-type suggestions for notification recipients based on current input, allowing admin to quickly find and select a user or librarian to send direct notification to
 function showAdminRecipientSuggestions(query) {
     const box = document.getElementById('adminRecipientSuggestions');
     if (!box) return;
@@ -570,12 +579,14 @@ function showAdminRecipientSuggestions(query) {
     `).join('');
     box.classList.remove('hidden');
 }
+// When admin clicks on a recipient suggestion, fill the search input with the selected label and hide suggestions box
 function selectAdminRecipient(label) {
     document.getElementById('adminTargetUserSearch').value = label;
     const box = document.getElementById('adminRecipientSuggestions');
     box.classList.add('hidden');
     box.innerHTML = '';
 }
+// Handle sending direct notification to selected user/librarian with message from input, then clear form and reload notifications to update UI and nav dot
 async function sendDirectNotification() {
     const selected = document.getElementById('adminTargetUserSearch').value.trim();
     const userId = adminRecipientMap[selected];
@@ -611,6 +622,7 @@ document.addEventListener('click', function (e) {
         box.classList.add('hidden');
     }
 });
+// Update notification actions in the header based on the active notifications tab
 function updateHeaderNotificationActions() {
     const actions = document.getElementById('notificationHeaderActions');
     const notificationsTab = document.getElementById('notifications-tab');
@@ -622,7 +634,7 @@ document.querySelectorAll('.sidebar nav a').forEach(link => {
         setTimeout(updateHeaderNotificationActions, 0);
     });
 });
-
+// Handle sending announcement broadcast to either all users or all librarians based on selected role, then clear input and reload notifications to update UI and nav dot
 async function sendAnnouncement() {
     const input = document.getElementById('adminAnnouncementInput');
     const message = input.value.trim();

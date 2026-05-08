@@ -184,6 +184,7 @@ requireRole('user');
                 document.getElementById('profileCard').classList.add('hidden');
             }
         });
+        // Notifications functions
         async function loadNotifications() {
             const res = await apiCall('get_notifications');
             if (res.success) {
@@ -202,6 +203,7 @@ requireRole('user');
                 updateNotificationDot(unreadCount);
             }
         }
+        // Show/hide notification dot in nav based on unread count
         function updateNotificationDot(unreadCount) {
             const dot = document.getElementById('notificationsDot');
             if (!dot) return;
@@ -230,7 +232,7 @@ requireRole('user');
                 renderAvailableBooks(allBooks);
             }
         }
-
+        // Render books in the Browse tab with a Borrow button  
         function renderAvailableBooks(books) {
             const tbody = document.querySelector('#browseTable tbody');
             tbody.innerHTML = '';
@@ -245,7 +247,7 @@ requireRole('user');
                 </tr>`;
             });
         }
-
+     // Filter books in the Browse tab based on search input (title or author)
         function filterBooks() {
             const query = document.getElementById('searchInput').value.toLowerCase();
             const filtered = allBooks.filter(b => 
@@ -254,7 +256,7 @@ requireRole('user');
             );
             renderAvailableBooks(filtered);
         }
-
+       // Handle borrow request when user clicks "Borrow" button
         async function borrowBook(book_id) {
             if(await showConfirm('Do you want to send this borrow request?', 'Confirm Borrow Request')) {
                 const res = await apiCall('request_borrow', {book_id});
@@ -268,7 +270,7 @@ requireRole('user');
                 }
             }
         }
-
+      // Load user's current borrow transactions and display in My Books tab with status and action buttons
         async function loadMyTransactions() {
             const res = await apiCall('get_my_transactions');
             if(res.success) {
@@ -329,7 +331,7 @@ requireRole('user');
             });
          }
         }
-
+     // Handle return request when user clicks "Request Return" button for a borrowed book
         async function returnBook(book_id) {
             if(await showConfirm('Send return request to librarian?', 'Confirm Return Request')) {
                 const res = await apiCall('request_return', {book_id});

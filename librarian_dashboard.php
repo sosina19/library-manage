@@ -309,7 +309,6 @@ requireRole('librarian');
                 document.getElementById('profileCard').classList.add('hidden');
             }
         });
-
         async function loadBooks() {
             const res = await apiCall('get_books');
             if(res.success) {
@@ -365,8 +364,7 @@ requireRole('librarian');
             row.style.display = text.includes(query) ? "" : "none";
         });
     } 
-    
-    // 
+    // Dashboard stats
         async function loadDashboardStats() {
             const res = await apiCall('librarian_dashboard_stats');
             if (res.success) {
@@ -378,7 +376,7 @@ requireRole('librarian');
                 document.getElementById('dueSoonBooks').innerText = res.data.due_soon_books;
             }
         }
-
+     // Load books for Catalog tab (similar to Manage Books but can be extended with more details or filters)
         async function loadCatalogBooks() {
             const res = await apiCall('get_books');
             if (res.success) {
@@ -405,7 +403,7 @@ requireRole('librarian');
                 });
             }
         }
-
+    // Load transactions for Transactions tab
         async function loadTransactions() {
             const res = await apiCall('get_transactions');
             if(res.success) {
@@ -508,6 +506,7 @@ requireRole('librarian');
                     });
             }
         }
+        // Show recipient suggestions based on input query
         function showRecipientSuggestions(query) {
             const box = document.getElementById('recipientSuggestions');
             if (!box) return;
@@ -531,12 +530,14 @@ requireRole('librarian');
             `).join('');
             box.classList.remove('hidden');
         }
+        // When a recipient is selected from suggestions, fill the input and hide suggestions
         function selectRecipient(label) {
             document.getElementById('targetUserSearch').value = label;
             const box = document.getElementById('recipientSuggestions');
             box.classList.add('hidden');
             box.innerHTML = '';
         }
+        // Send direct notification to selected user
         async function sendDirectNotification() {
             const selected = document.getElementById('targetUserSearch').value.trim();
             const userId = recipientMap[selected];
@@ -571,6 +572,7 @@ requireRole('librarian');
                 box.classList.add('hidden');
             }
         });
+        // Show/hide header actions based on active tab
         function updateHeaderNotificationActions() {
             const actions = document.getElementById('notificationHeaderActions');
             const notificationsTab = document.getElementById('notifications-tab');
@@ -595,7 +597,7 @@ requireRole('librarian');
                 alert(res.message || 'Failed to send announcement');
             }
         }
-
+    // Book management functions
         function openBookModal() {
             document.getElementById('bookForm').reset();
             document.getElementById('b_id').value = '';
