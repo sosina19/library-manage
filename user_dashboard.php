@@ -87,13 +87,16 @@ requireRole('user');
             </div>
             <div id="notifications-tab" class="tab-content hidden">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
                         <h3>My Notifications</h3>
-                    </div>
-                    <div class="controls-bar">
-                        <div style="display:flex; gap:10px; margin:15px 0;">
-                            <button class="btn btn-secondary btn-sm" onclick="markAllNotificationsRead()">Mark all read</button>
-                            <button class="btn btn-danger btn-sm" onclick="clearNotifications()">Clear all</button>
+                        <div class="notification-menu-wrapper">
+                            <button class="hamburger-btn" onclick="toggleNotifMenu(event)">
+                                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                            </button>
+                            <div id="notifActionsMenu" class="notif-dropdown-menu hidden">
+                                <a onclick="markAllNotificationsRead(); toggleNotifMenu(event);" class="notif-dropdown-item">✔️ Mark All as Read</a>
+                                <a onclick="clearNotifications(); toggleNotifMenu(event);" class="notif-dropdown-item text-danger">🗑️ Clear All</a>
+                            </div>
                         </div>
                     </div>
                     <div class="table-responsive">

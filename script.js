@@ -107,3 +107,23 @@ function switchTab(tabId) {
     document.getElementById(tabId).classList.remove('hidden');
     document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
 }
+
+// Toggle Notification Hamburger Menu
+function toggleNotifMenu(e) {
+    if (e) {
+        e.stopPropagation();
+    }
+    const menu = document.getElementById('notifActionsMenu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+// Close notification menu when clicking outside
+document.addEventListener('click', function (e) {
+    const menu = document.getElementById('notifActionsMenu');
+    const wrapper = document.querySelector('.notification-menu-wrapper');
+    if (menu && wrapper && !menu.classList.contains('hidden') && !wrapper.contains(e.target)) {
+        menu.classList.add('hidden');
+    }
+});

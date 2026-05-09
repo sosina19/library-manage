@@ -21,12 +21,8 @@ requireRole('librarian');
                 <a data-tab="catalog-tab" onclick="switchTab('catalog-tab'); loadCatalogBooks();">Book Catalog</a>
                 <a data-tab="transactions-tab" onclick="switchTab('transactions-tab'); loadTransactions();">Transactions</a>
                 <div class="nav-item-group">
-                    <a id="notificationsNavLink" data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications(); toggleNotificationSubmenu();">Notifications
+                    <a id="notificationsNavLink" data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications();">Notifications
                      <span id="notificationsDot" class="notif-dot hidden"></span></a>
-                    <div id="notifSubmenu" class="submenu hidden">
-                        <a onclick="markAllNotificationsRead()" class="submenu-link">✔️ Mark all read</a>
-                        <a onclick="clearNotifications()" class="submenu-link text-danger">🗑️ Clear all</a>
-                    </div>
                 </div>
             </nav>
              <div class="profile-wrapper">
@@ -160,8 +156,17 @@ requireRole('librarian');
             </div>
             <div id="notifications-tab" class="tab-content hidden">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
                         <h3>Librarian Notifications</h3>
+                        <div class="notification-menu-wrapper">
+                            <button class="hamburger-btn" onclick="toggleNotifMenu(event)">
+                                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                            </button>
+                            <div id="notifActionsMenu" class="notif-dropdown-menu hidden">
+                                <a onclick="markAllNotificationsRead(); toggleNotifMenu(event);" class="notif-dropdown-item">✔️ Mark All as Read</a>
+                                <a onclick="clearNotifications(); toggleNotifMenu(event);" class="notif-dropdown-item text-danger">🗑️ Clear All</a>
+                            </div>
+                        </div>
                     </div>
                     <div class="notification-controls">
                         <div class="notification-action-card">
@@ -579,13 +584,7 @@ requireRole('librarian');
                 box.classList.add('hidden');
             }
         });
-        // Show/hide submenu
-        function toggleNotificationSubmenu() {
-            const submenu = document.getElementById('notifSubmenu');
-            if (submenu) {
-                submenu.classList.toggle('hidden');
-            }
-        }
+
         async function sendAnnouncement() {
             const input = document.getElementById('announcementInput');
             const message = input.value.trim();
