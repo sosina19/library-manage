@@ -210,23 +210,32 @@ requireRole('admin');
                     <div class="card-header">
                         <h3>Admin Notifications</h3>
                     </div>
-                    <div class="controls-bar">
-                        <div style="display:flex; gap:10px; margin:15px 0; flex-wrap:wrap; align-items:center;">
-                            <select id="adminRecipientRole" class="form-control" style="max-width:180px;" onchange="onRecipientRoleChange()">
-                                <option value="user">👤 Users</option>
-                                <option value="librarian">📚 Librarians</option>
-                            </select>
-                            <div style="position:relative; flex:1; min-width:260px;">
-                                <input type="text" id="adminTargetUserSearch" class="form-control" 
-                                list="adminRecipientsList" placeholder="🔎 Search recipient..." autocomplete="off" 
-                                oninput="showAdminRecipientSuggestions(this.value)" onfocus="showAdminRecipientSuggestions(this.value)">
-                                <div id="adminRecipientSuggestions" class="hidden" style="position:absolute; top:44px; left:0; right:0; max-height:220px; overflow:auto; background:#fff; border:1px solid #e2e8f0; border-radius:10px; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.12);"></div>
+                    <div class="notification-controls">
+                        <div class="notification-action-card">
+                            <div class="notification-input-wrapper" style="display:flex; gap:10px; flex-wrap:wrap;">
+                                <select id="adminRecipientRole" class="form-control" style="flex:1; min-width:140px; max-width:180px;" onchange="onRecipientRoleChange()">
+                                    <option value="user">👤 Users</option>
+                                    <option value="librarian">📚 Librarians</option>
+                                </select>
+                                <div style="position:relative; flex:2; min-width:200px;">
+                                    <input type="text" id="adminTargetUserSearch" class="form-control" 
+                                    list="adminRecipientsList" placeholder="🔎 Search recipient..." autocomplete="off" 
+                                    oninput="showAdminRecipientSuggestions(this.value)" onfocus="showAdminRecipientSuggestions(this.value)">
+                                    <div id="adminRecipientSuggestions" class="recipient-dropdown hidden"></div>
+                                </div>
                             </div>
                             <datalist id="adminRecipientsList"></datalist>
-                            <input type="text" id="adminAnnouncementInput" class="form-control" 
-                            style="flex:1; min-width:260px;" placeholder="✉️ Write message...">
-                            <button class="btn btn-primary btn-sm" onclick="sendDirectNotification()">Send </button>
-                            <button class="btn btn-secondary btn-sm" onclick="sendAnnouncement()">Broadcast </button>
+                            <button class="btn btn-primary" onclick="sendDirectNotification()">
+                                <span>✉️ Send Direct Message</span>
+                            </button>
+                        </div>
+                        <div class="notification-action-card">
+                            <div class="notification-input-wrapper">
+                                <input type="text" id="adminAnnouncementInput" class="form-control" placeholder="📢 Write a broadcast message...">
+                            </div>
+                            <button class="btn btn-broadcast" onclick="sendAnnouncement()">
+                                <span>📣 Broadcast to All</span>
+                            </button>
                         </div>
                     </div>
                     <div class="table-responsive">
@@ -574,7 +583,7 @@ function showAdminRecipientSuggestions(query) {
         return;
     }
     box.innerHTML = matches.map(u => `
-        <button type="button" style="display:block; width:100%; text-align:left; padding:10px 12px; border:none; background:white; cursor:pointer;"
+        <button type="button" class="suggestion-btn"
             onclick="selectAdminRecipient('${u.label.replace(/'/g, "\\'")}')">${u.label}</button>
     `).join('');
     box.classList.remove('hidden');

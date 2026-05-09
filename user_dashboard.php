@@ -58,9 +58,9 @@ requireRole('user');
             <!-- Browse Books Tab -->
             <div id="browse-tab" class="tab-content">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                         <h3>Available Books</h3>
-                        <input type="text" id="searchInput" class="form-control" style="width: 250px;" placeholder="Search title or author..." onkeyup="filterBooks()">
+                        <input type="text" id="searchInput" class="form-control" style="flex:1; min-width:200px; max-width:300px;" placeholder="Search title or author..." onkeyup="filterBooks()">
                     </div>
                     <div class="table-responsive">
                         <table id="browseTable">

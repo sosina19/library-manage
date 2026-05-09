@@ -20,8 +20,14 @@ requireRole('librarian');
                 <a class="active" data-tab="books-tab" onclick="switchTab('books-tab'); loadBooks();">Manage Books</a>
                 <a data-tab="catalog-tab" onclick="switchTab('catalog-tab'); loadCatalogBooks();">Book Catalog</a>
                 <a data-tab="transactions-tab" onclick="switchTab('transactions-tab'); loadTransactions();">Transactions</a>
-                <a id="notificationsNavLink" data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications();">Notifications
-                 <span id="notificationsDot" class="notif-dot hidden"></span></a>
+                <div class="nav-item-group">
+                    <a id="notificationsNavLink" data-tab="notifications-tab" onclick="switchTab('notifications-tab'); loadNotifications(); toggleNotificationSubmenu();">Notifications
+                     <span id="notificationsDot" class="notif-dot hidden"></span></a>
+                    <div id="notifSubmenu" class="submenu hidden">
+                        <a onclick="markAllNotificationsRead()" class="submenu-link">✔️ Mark all read</a>
+                        <a onclick="clearNotifications()" class="submenu-link text-danger">🗑️ Clear all</a>
+                    </div>
+                </div>
             </nav>
              <div class="profile-wrapper">
         <div class="profile-circle" onclick="toggleProfileCard()">
@@ -51,10 +57,6 @@ requireRole('librarian');
         <main class="main-content">
             <div class="header">
                 <h1>👋Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
-                <div id="notificationHeaderActions" style="display:none; gap:10px; align-items:center;">
-                    <button class="btn btn-secondary btn-sm" onclick="markAllNotificationsRead()">Mark all read</button>
-                    <button class="btn btn-danger btn-sm" onclick="clearNotifications()">Clear all</button>
-                </div>
             </div>
              <div id="dashboard-tab" class="tab-content">
                 <div class="card">
@@ -161,21 +163,26 @@ requireRole('librarian');
                     <div class="card-header">
                         <h3>Librarian Notifications</h3>
                     </div>
-                    <div class="controls-bar">
-                        <div style="display:flex; gap:10px; margin:15px 0;">
-                            <div style="position:relative; flex:1; min-width:260px;">
+                    <div class="notification-controls">
+                        <div class="notification-action-card">
+                            <div class="notification-input-wrapper">
                                 <input type="text" id="targetUserSearch" 
                                 class="form-control" list="userRecipientsList"
                                  placeholder="🔎 Search user by username..." autocomplete="off" oninput="showRecipientSuggestions(this.value)" onfocus="showRecipientSuggestions(this.value)">
-                                <div id="recipientSuggestions" 
-                                class="hidden" style="position:absolute; 
-                                top:44px; left:0; right:0; max-height:220px; overflow:auto; 
-                                background:#fff; border:1px solid #e2e8f0; border-radius:10px; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,0.12);"></div>
+                                <div id="recipientSuggestions" class="recipient-dropdown hidden"></div>
                             </div>
                             <datalist id="userRecipientsList"></datalist>
-                            <input type="text" id="announcementInput" class="form-control" placeholder="📢 Send library announcement to students...">
-                            <button class="btn btn-primary btn-sm" onclick="sendDirectNotification()">Send to User</button>
-                            <button class="btn btn-secondary btn-sm" onclick="sendAnnouncement()">Broadcast to all</button>
+                            <button class="btn btn-primary" onclick="sendDirectNotification()">
+                                <span>✉️ Send Direct Message</span>
+                            </button>
+                        </div>
+                        <div class="notification-action-card">
+                            <div class="notification-input-wrapper">
+                                <input type="text" id="announcementInput" class="form-control" placeholder="📢 Write an announcement to all students...">
+                            </div>
+                            <button class="btn btn-broadcast" onclick="sendAnnouncement()">
+                                <span>📣 Broadcast to All</span>
+                            </button>
                         </div>
                     </div>
                     <div class="table-responsive">
@@ -525,7 +532,7 @@ requireRole('librarian');
                 return;
             }
             box.innerHTML = matches.map(u => `
-                <button type="button" style="display:block; width:100%; text-align:left; padding:10px 12px; border:none; background:white; cursor:pointer;"
+                <button type="button" class="suggestion-btn"
                     onclick="selectRecipient('${u.label.replace(/'/g, "\\'")}')">${u.label}</button>
             `).join('');
             box.classList.remove('hidden');
@@ -572,18 +579,13 @@ requireRole('librarian');
                 box.classList.add('hidden');
             }
         });
-        // Show/hide header actions based on active tab
-        function updateHeaderNotificationActions() {
-            const actions = document.getElementById('notificationHeaderActions');
-            const notificationsTab = document.getElementById('notifications-tab');
-            if (!actions || !notificationsTab) return;
-            actions.style.display = notificationsTab.classList.contains('hidden') ? 'none' : 'flex';
+        // Show/hide submenu
+        function toggleNotificationSubmenu() {
+            const submenu = document.getElementById('notifSubmenu');
+            if (submenu) {
+                submenu.classList.toggle('hidden');
+            }
         }
-        document.querySelectorAll('.sidebar nav a').forEach(link => {
-            link.addEventListener('click', () => {
-                setTimeout(updateHeaderNotificationActions, 0);
-            });
-        });
         async function sendAnnouncement() {
             const input = document.getElementById('announcementInput');
             const message = input.value.trim();
@@ -671,7 +673,6 @@ async function confirmDelete() {
         loadDashboardStats();
         loadNotifications();
         loadRecipients();
-        updateHeaderNotificationActions();
         setInterval(loadNotifications, 30000);
 
         // Ensure sidebar "Manage Books" always restores the full view.
