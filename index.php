@@ -21,7 +21,7 @@ if (isset($_SESSION['user_id'])) {
             <form id="loginForm">
                 <div class="form-group">
                     <label>Username</label>
-                    <input type="text" id="username" class="form-control" required>
+                    <input type="text" id="username" class="form-control" autocomplete="off" required>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
