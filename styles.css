@@ -416,8 +416,8 @@ body.dark-mode #recentActivities {
 }
 #recentActivities {
     display: inline-block;   /* shrink to content */
-    width: fit-content;      /* fits content width */
-    max-width: 100%;         /* prevents overflow */
+      /* fits content width */
+        /* prevents overflow */
     margin: 20px auto;       /* centers horizontally */
     padding: 1.5rem;
     background: var(--gray-100);
@@ -1004,5 +1004,5 @@ body.dark-mode .notif-dropdown-item:hover {
     color: var(--danger);
 }
 .contain{
-    width: 700px;
+    width: 800px;
 }
