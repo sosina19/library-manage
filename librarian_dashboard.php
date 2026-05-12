@@ -51,6 +51,7 @@ requireRole('librarian');
         </aside>
         
         <main class="main-content">
+            <div class="contain">
             <div class="header">
                 <h1>👋Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h1>
             </div>
@@ -263,7 +264,7 @@ requireRole('librarian');
         <button onclick="closeModal('infoModal')">Close</button>
     </div>
 </div>
-
+</div>
 
     <script src="script.js"></script>
     <script>
