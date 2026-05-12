@@ -1003,3 +1003,6 @@ body.dark-mode .notif-dropdown-item:hover {
 .notif-dropdown-item.text-danger {
     color: var(--danger);
 }
+.contain{
+    width: 700px;
+}
